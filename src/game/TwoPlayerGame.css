@@ -1,0 +1,90 @@
+.game {
+  max-width: 56rem;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.game-header h1 {
+  margin-bottom: 0.25rem;
+}
+
+.error {
+  background: #fdd;
+  border: 1px solid #c00;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+}
+
+.button-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0;
+}
+
+.hand-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.card-chip {
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.4rem;
+  border: 1px solid #999;
+  background: #fff;
+  cursor: pointer;
+  min-width: 2.6rem;
+}
+
+.card-chip.red {
+  color: #c00;
+}
+
+.card-chip.black {
+  color: #111;
+}
+
+.card-chip:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.card-chip.selected {
+  outline: 3px solid #3366ff;
+  outline-offset: 1px;
+}
+
+.trick-area {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  min-height: 3rem;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: #f3f3f3;
+  border-radius: 0.5rem;
+}
+
+.trick-play {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hands {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.result {
+  font-size: 1.2rem;
+}

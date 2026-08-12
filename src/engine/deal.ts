@@ -1,6 +1,8 @@
-// Dealing: kitty set-aside, 4P deal, and the 2P draw phase. See trumps-spec.md §1.1-1.3.
+// Dealing: kitty set-aside, 4P deal, the 2P draw phase, and the kitty exchange.
+// See trumps-spec.md §1.1-1.4.
 
 import type { Card, PlayerId } from './types'
+import { cardId } from './types'
 
 export interface KittySplit {
   kitty: Card[]
@@ -119,5 +121,43 @@ export function resolveDraw(state: DrawPhaseState, decision: 'keep' | 'discard')
     turn: complete ? state.turn : nextTurn,
     pendingCard: null,
     complete,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Kitty exchange (spec §1.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * The bid winner swaps any number of kitty cards into their hand, discarding the same
+ * number back out. Hand size stays at 12; the kitty stays at 4 (the discarded cards
+ * replace the ones taken, so nothing here is destroyed or created).
+ */
+export function applyKittyExchange(
+  hand: readonly Card[],
+  kitty: readonly Card[],
+  cardsToDiscardFromHand: readonly Card[],
+  cardsToTakeFromKitty: readonly Card[],
+): { hand: Card[]; kitty: Card[] } {
+  if (cardsToDiscardFromHand.length !== cardsToTakeFromKitty.length) {
+    throw new Error('Must discard the same number of cards from hand as taken from the kitty')
+  }
+  for (const card of cardsToDiscardFromHand) {
+    if (!hand.some((c) => c.suit === card.suit && c.rank === card.rank)) {
+      throw new Error(`Card not in hand: ${cardId(card)}`)
+    }
+  }
+  for (const card of cardsToTakeFromKitty) {
+    if (!kitty.some((c) => c.suit === card.suit && c.rank === card.rank)) {
+      throw new Error(`Card not in kitty: ${cardId(card)}`)
+    }
+  }
+
+  const isDiscarded = (c: Card) => cardsToDiscardFromHand.some((d) => d.suit === c.suit && d.rank === c.rank)
+  const isTaken = (c: Card) => cardsToTakeFromKitty.some((t) => t.suit === c.suit && t.rank === c.rank)
+
+  return {
+    hand: [...hand.filter((c) => !isDiscarded(c)), ...cardsToTakeFromKitty],
+    kitty: [...kitty.filter((c) => !isTaken(c)), ...cardsToDiscardFromHand],
   }
 }

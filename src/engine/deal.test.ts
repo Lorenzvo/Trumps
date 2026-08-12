@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { buildDeck, shuffle } from './deck'
-import { deal4Players, drawCard, resolveDraw, setAsideKitty, startDrawPhase } from './deal'
+import { applyKittyExchange, deal4Players, drawCard, resolveDraw, setAsideKitty, startDrawPhase } from './deal'
+import type { Card } from './types'
 import { cardId } from './types'
+
+const c = (rank: Card['rank'], suit: Card['suit']): Card => ({ rank, suit })
 
 function shuffledDeck() {
   return shuffle(buildDeck(), () => 0.42)
@@ -107,5 +110,47 @@ describe('2P draw phase', () => {
     const { remaining } = setAsideKitty(shuffledDeck())
     const state = startDrawPhase(remaining)
     expect(() => resolveDraw(state, 'keep')).toThrow()
+  })
+})
+
+describe('applyKittyExchange', () => {
+  const hand = [c('2', 'clubs'), c('3', 'clubs'), c('4', 'hearts')]
+  const kitty = [c('A', 'spades'), c('K', 'spades'), c('Q', 'diamonds'), c('J', 'diamonds')]
+
+  it('swaps N hand cards for N kitty cards, keeping both piles the same size', () => {
+    const result = applyKittyExchange(hand, kitty, [c('2', 'clubs')], [c('A', 'spades')])
+    expect(result.hand).toHaveLength(3)
+    expect(result.kitty).toHaveLength(4)
+    expect(result.hand.map(cardId)).toContain(cardId(c('A', 'spades')))
+    expect(result.hand.map(cardId)).not.toContain(cardId(c('2', 'clubs')))
+    expect(result.kitty.map(cardId)).toContain(cardId(c('2', 'clubs')))
+    expect(result.kitty.map(cardId)).not.toContain(cardId(c('A', 'spades')))
+  })
+
+  it('allows swapping zero cards (a no-op exchange)', () => {
+    const result = applyKittyExchange(hand, kitty, [], [])
+    expect(result.hand.map(cardId)).toEqual(hand.map(cardId))
+    expect(result.kitty.map(cardId)).toEqual(kitty.map(cardId))
+  })
+
+  it('allows swapping all 4 kitty cards at once', () => {
+    const fullHand = [...hand, c('5', 'hearts')]
+    const discard = fullHand.slice(0, 4)
+    const result = applyKittyExchange(fullHand, kitty, discard, kitty)
+    expect(result.hand).toHaveLength(4)
+    expect(result.hand.map(cardId).sort()).toEqual(kitty.map(cardId).sort())
+    expect(result.kitty.map(cardId).sort()).toEqual(discard.map(cardId).sort())
+  })
+
+  it('rejects mismatched counts', () => {
+    expect(() => applyKittyExchange(hand, kitty, [c('2', 'clubs')], [])).toThrow()
+  })
+
+  it('rejects discarding a card not in hand', () => {
+    expect(() => applyKittyExchange(hand, kitty, [c('9', 'spades')], [c('A', 'spades')])).toThrow()
+  })
+
+  it('rejects taking a card not in the kitty', () => {
+    expect(() => applyKittyExchange(hand, kitty, [c('2', 'clubs')], [c('9', 'hearts')])).toThrow()
   })
 })
