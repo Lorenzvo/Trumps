@@ -362,6 +362,11 @@ function DrawPhaseView({
           </div>
         </div>
       )}
+
+      <div className="hands">
+        <Hand playerId="p1" hand={state.draw.hands[0]} />
+        <Hand playerId="p2" hand={state.draw.hands[1]} />
+      </div>
     </section>
   )
 }
