@@ -47,6 +47,45 @@ const PLAYERS: readonly [PlayerId, PlayerId] = ['p1', 'p2']
 const PLAYER_NAMES: Record<PlayerId, string> = { p1: 'Player 1', p2: 'Player 2' }
 const SUIT_SYMBOL: Record<Suit, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }
 
+// Bare-bones rules reference — content over presentation for now, see
+// trumps-spec.md §1 for the full rules this is condensed from.
+function Rules() {
+  return (
+    <details className="rules">
+      <summary>Rules (2P)</summary>
+      <ul>
+        <li>
+          <strong>Draw:</strong> alternate turns drawing from the middle pile. Keep the card (next card
+          auto-discards unseen) or discard it (forced to keep the next card, unseen) — either way you end up with 12
+          cards.
+        </li>
+        <li>
+          <strong>Bidding:</strong> the player who drew first opens (can't pass). A bid is a number 2-7 plus High or
+          Low — the bid number means the opponent needs <code>8 − bid</code> tricks to win. Higher number always
+          beats lower; at equal numbers Low beats High. Each player gets up to 2 bids; raise or pass.
+        </li>
+        <li>
+          <strong>Trump:</strong> named blind (before seeing the kitty) — unless the opener wins on their very first
+          call, in which case they see the kitty first.
+        </li>
+        <li>
+          <strong>Kitty exchange:</strong> the bid winner may swap any number of the 4 kitty cards into their hand,
+          discarding the same number back out.
+        </li>
+        <li>
+          <strong>Tricks:</strong> follow suit if able. If void, you may play trump (once broken) or any other card
+          — trump is never forced. Highest trump wins the trick; otherwise best card of the led suit (High or Low
+          per the bid).
+        </li>
+        <li>
+          <strong>Win:</strong> the bid side wins if the opponent never reaches their target trick count across all
+          12 tricks; the opponent wins the instant they do.
+        </li>
+      </ul>
+    </details>
+  )
+}
+
 function otherOf(playerId: PlayerId): PlayerId {
   return playerId === 'p1' ? 'p2' : 'p1'
 }
@@ -272,6 +311,8 @@ export function TwoPlayerGame() {
         </p>
       </header>
 
+      <Rules />
+
       {state.error && <p className="error">{state.error}</p>}
 
       {state.phase === 'draw' && <DrawPhaseView state={state} onDraw={handleDraw} onResolve={handleResolveDraw} />}
@@ -354,12 +395,16 @@ function DrawPhaseView({
           <CardChip card={state.draw.pendingCard} />
           <div className="button-row">
             <button type="button" onClick={() => onResolve('keep')}>
-              Keep it (next card auto-discards, unseen)
+              Keep
             </button>
             <button type="button" onClick={() => onResolve('discard')}>
-              Discard it (forced to keep the next card, unseen)
+              Discard
             </button>
           </div>
+          <p className="hint">
+            Keep: this card joins your hand, then the next card auto-discards unseen. Discard: this card is gone
+            unseen, and you're forced to keep whatever comes up next.
+          </p>
         </div>
       )}
 
