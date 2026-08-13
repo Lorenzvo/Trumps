@@ -13,6 +13,8 @@ import {
   serverTimestamp,
   type Unsubscribe,
 } from 'firebase/firestore'
+import type { PlayerId } from '../engine'
+import { startTwoPlayerRound, type TwoPlayerGameState } from '../game/twoPlayerReducer'
 import { db } from './config'
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -35,6 +37,8 @@ export interface RoomDoc {
   // 2P seats are p1/p2. 4P seats (blue1/red1/blue2/red2) are reserved in the model
   // but not yet supported end-to-end — see createRoom.
   seats: Partial<Record<string, Seat>>
+  // Present once status === 'playing'. 2P only for now, matching seats/createRoom.
+  game?: TwoPlayerGameState | null
 }
 
 function seatOrderFor(mode: GameMode): string[] {
@@ -109,16 +113,26 @@ export function subscribeToRoom(roomCode: string, onChange: (room: (RoomDoc & { 
   })
 }
 
-/** Host-only: marks the lobby as started. Actual networked gameplay wiring is next. */
+/** Host-only: deals the first round and marks the room as playing. */
 export async function startGame(roomCode: string): Promise<void> {
   const ref = roomRef(roomCode)
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref)
     if (!snap.exists()) throw new Error('Room no longer exists')
     const room = snap.data() as RoomDoc
+    if (room.mode !== '2p') throw new Error('Only 2P games are wired up currently')
+
     const order = seatOrderFor(room.mode)
     const filled = order.every((seat) => room.seats[seat])
     if (!filled) throw new Error('Waiting for more players to join')
-    tx.update(ref, { status: 'playing' })
+
+    // p1 is always whoever claimed the first seat (the host) — matches spec §1.4:
+    // "the player who drew first must open the bidding."
+    const names: Record<PlayerId, string> = {
+      p1: room.seats.p1!.name,
+      p2: room.seats.p2!.name,
+    }
+    const game = startTwoPlayerRound(1, 'p1', names)
+    tx.update(ref, { status: 'playing', game })
   })
 }

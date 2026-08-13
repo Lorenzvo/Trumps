@@ -7,7 +7,7 @@ See [`trumps-spec.md`](./trumps-spec.md) for full rules and architecture.
 
 - Vite + React + TypeScript
 - Vitest for the game engine's unit tests
-- Firestore for room/lobby sync (live); gameplay itself is not networked yet
+- Firestore for room/lobby sync and networked gameplay
 
 ## Game engine
 
@@ -28,15 +28,49 @@ dependencies, so it can be tested and reasoned about on its own:
 Import everything from `src/engine/index.ts` rather than reaching into individual
 modules.
 
+## Game state layer
+
+`src/game/twoPlayerReducer.ts` holds the 2P game state shape and pure transition
+functions (`applyBid`, `applyPlayCard`, etc. — each returns the next state or throws on
+an illegal move). `src/game/GameViews.tsx` holds the shared presentational components
+(hands, trick area, bidding panel, kitty exchange, rules modal). Both take an explicit
+`viewerPlayerId` — the "near"/revealed seat is always that player, "away" is always
+face-down. Two thin wrappers consume the same views:
+
+- `TwoPlayerGame.tsx` — local hot-seat/practice mode. `viewerPlayerId` is computed each
+  render as whoever can currently act, so hand visibility flips by turn on one screen
+  (pass-and-play). State lives in a local `useState`.
+- `NetworkedTwoPlayerGame.tsx` — real multiplayer. `viewerPlayerId` is your fixed seat,
+  always. State lives in Firestore; actions go through `firebase/gameSync.ts`'s
+  transaction instead of local state, so both clients see the same game.
+
+This split means hot-seat and networked play can never drift apart on rules — they run
+the exact same `applyX` functions, just fed by different state sources.
+
 ## Multiplayer
 
-`src/firebase/` holds the Firestore layer: `config.ts` (init, from `.env.local` — copy
-`.env.example`), `clientId.ts` (per-browser identity, no accounts), `rooms.ts`
-(create/join/subscribe/start), and `firestore.rules` (paste into the Firebase console's
-Rules tab manually — no CLI deploy wired up yet).
+`src/firebase/` holds the Firestore layer:
+- `config.ts` — init, from `.env.local` (copy `.env.example`)
+- `clientId.ts` — per-browser identity, no accounts
+- `rooms.ts` — create/join/subscribe/start; `startGame` deals the first round
+- `gameSync.ts` — `applyGameAction`, wraps a game-state transition in a Firestore
+  transaction so concurrent writes can't clobber each other
+- `firestore.rules` — paste into the Firebase console's Rules tab manually (no CLI
+  deploy wired up yet)
 
-`src/menu/` is the room UI: `MainMenu` (name, create-or-join) and `Lobby` (live seat
-list, host-gated Start button, shareable room code via a `?room=` URL param).
+`src/menu/` is the room UI: `MainMenu` (name, create-or-join, or a practice-mode
+shortcut) and `Lobby` (live seat list, host-gated Start button, shareable room code via
+a `?room=` URL param — opening that link jumps straight to a "join this room" prompt).
+
+**Privacy caveat, worth knowing:** Firestore rules are currently wide open
+(`allow read, write: if true` on the whole `rooms` collection — see rationale in
+`firestore.rules`), and there's no per-seat auth. That means the *UI* never renders your
+opponent's hand, but the full room document — both hands included — is technically
+sent to both browsers on every sync, inspectable via devtools/network tab. Fine for the
+small-friend-group trust model the spec assumes; not a real security boundary. Making
+it one would mean splitting hands into per-seat documents/subcollections with rules
+that check a real identity, which needs some form of auth (even anonymous) to be
+meaningful — not done.
 
 ## Commands
 
@@ -50,26 +84,31 @@ npm run lint         # oxlint
 
 ## Status
 
-Engine core (deck, dealing, bidding, trick resolution, win condition, kitty exchange)
-is built and tested. Menu → create/join room → live lobby is wired to Firestore and
-real-time across devices. Once a host starts the game, it currently drops into
-`src/game/TwoPlayerGame.tsx` — a full 2P game loop, but still local hot-seat (not yet
-reading/writing the room's Firestore doc). That's the next piece: replace
-`TwoPlayerGame`'s local `useState` with a synced version so play itself is networked.
-4P mode and pixel art are still untouched. See `trumps-spec.md` §3 for the build plan.
+Engine core is built and tested (65 tests). Menu → create/join room → live lobby →
+networked 2P gameplay is wired end-to-end through Firestore: draw phase, bidding,
+trump, kitty exchange, tricks, round end, next round all read/write the room's synced
+game document, gated so only the player whose turn it is can act and only your own
+hand ever renders face-up. Local hot-seat "practice mode" still exists side by side,
+sharing the same engine/views. 4P mode and pixel art are still untouched.
+
+**Not yet verified in a live browser this session** — the automation tooling I use to
+self-check UI changes was disconnected throughout, so this networked layer is
+typecheck/build-clean but hasn't been watched running across two real devices by me.
+Worth testing thoroughly: does the lobby's `game` field actually appear once Start is
+clicked, do both clients' UIs advance in step, does refreshing either tab recover state
+correctly, does turn-gating actually hide the right controls on each side.
 
 ### Known gaps / backlog
 
-- **Networked gameplay:** the biggest remaining piece — wire `TwoPlayerGame`'s engine
-  calls through the room's Firestore document instead of local state, so two separate
-  devices can actually play against each other, not just share a lobby.
-- **Real hand privacy:** once gameplay is networked, this mostly falls out for free —
-  each client only ever needs to read its own hand plus public state, so there's no
-  more "whoever's turn it is" hack. Until then, `TwoPlayerGame` still shows/hides hands
-  by turn as a presentation-layer stand-in.
+- **Real hand privacy:** see the privacy caveat above — UI-level only, not server-enforced.
+- **4-player mode:** engine supports it (bidding, rotation, dealing); room creation
+  explicitly rejects `'4p'` for now (`createRoom` throws) until 2P is fully solid.
 - **Card draw animation:** working (CSS pop-in on every new card), could still use a
   more literal "flies from the pile" motion path rather than pop-in-place.
 - **Visual design:** Baloo 2 / Silkscreen + a warm color system is in place; pixel-art
   card sprites per `trumps-spec.md` §2/Day 5 are still not started.
-- **4-player mode:** engine supports it (bidding, rotation, dealing); room creation
-  explicitly rejects `'4p'` for now (`createRoom` throws) until 2P is fully networked.
+- **Simultaneous "Next round" race:** if both players click it within the same instant,
+  a round could theoretically get skipped (each transaction advances by one round from
+  whatever it reads). Rare in practice, not guarded against.
+- **Bundle size:** production build is ~680KB (mostly the Firebase SDK) — fine for now,
+  candidate for code-splitting later if it matters.

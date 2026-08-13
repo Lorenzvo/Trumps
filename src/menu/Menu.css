@@ -92,3 +92,20 @@
   margin: 0;
   padding: 0.2rem 0.4rem;
 }
+
+.invite-card {
+  max-width: 22rem;
+  margin: 0 auto;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
