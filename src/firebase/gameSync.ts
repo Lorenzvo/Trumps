@@ -8,6 +8,7 @@
 import { doc, runTransaction } from 'firebase/firestore'
 import type { TwoPlayerGameState } from '../game/twoPlayerReducer'
 import { db } from './config'
+import { fromFirestoreGame, toFirestoreGame } from './gameSerialize'
 import type { RoomDoc } from './rooms'
 
 export async function applyGameAction(
@@ -20,7 +21,7 @@ export async function applyGameAction(
     if (!snap.exists()) throw new Error('Room no longer exists')
     const room = snap.data() as RoomDoc
     if (!room.game) throw new Error('The game has not started yet')
-    const nextGame = compute(room.game)
-    tx.update(ref, { game: nextGame })
+    const nextGame = compute(fromFirestoreGame(room.game))
+    tx.update(ref, { game: toFirestoreGame(nextGame) })
   })
 }

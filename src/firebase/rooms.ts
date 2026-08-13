@@ -14,8 +14,9 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import type { PlayerId } from '../engine'
-import { startTwoPlayerRound, type TwoPlayerGameState } from '../game/twoPlayerReducer'
+import { startTwoPlayerRound } from '../game/twoPlayerReducer'
 import { db } from './config'
+import { toFirestoreGame, type FirestoreGameState } from './gameSerialize'
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 5
@@ -38,7 +39,9 @@ export interface RoomDoc {
   // but not yet supported end-to-end — see createRoom.
   seats: Partial<Record<string, Seat>>
   // Present once status === 'playing'. 2P only for now, matching seats/createRoom.
-  game?: TwoPlayerGameState | null
+  // Stored Firestore-safe (see gameSerialize.ts) — convert with fromFirestoreGame
+  // before handing it to the reducer/views.
+  game?: FirestoreGameState | null
 }
 
 function seatOrderFor(mode: GameMode): string[] {
@@ -132,7 +135,7 @@ export async function startGame(roomCode: string): Promise<void> {
       p1: room.seats.p1!.name,
       p2: room.seats.p2!.name,
     }
-    const game = startTwoPlayerRound(1, 'p1', names)
+    const game = toFirestoreGame(startTwoPlayerRound(1, 'p1', names))
     tx.update(ref, { status: 'playing', game })
   })
 }

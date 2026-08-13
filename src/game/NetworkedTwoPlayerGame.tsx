@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import type { Card, Mode, PlayerId, Suit } from '../engine'
 import { applyGameAction } from '../firebase/gameSync'
+import { fromFirestoreGame } from '../firebase/gameSerialize'
 import { subscribeToRoom, type RoomDoc } from '../firebase/rooms'
 import {
   BiddingView,
@@ -92,7 +93,7 @@ export function NetworkedTwoPlayerGame({
     )
   }
 
-  const game = room.game
+  const game = fromFirestoreGame(room.game)
 
   function act(compute: (s: TwoPlayerGameState) => TwoPlayerGameState) {
     setError(null)
