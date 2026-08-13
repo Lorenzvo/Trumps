@@ -258,51 +258,50 @@ export function TwoPlayerGame() {
   const [state, setState] = useState<GameState>(() => startRound(1, PLAYERS[0]))
   const [rulesOpen, setRulesOpen] = useState(false)
 
-  function withError<T>(fn: () => T): T | undefined {
-    try {
-      setState((s) => ({ ...s, error: null }))
-      return fn()
-    } catch (err) {
-      setState((s) => ({ ...s, error: err instanceof Error ? err.message : String(err) }))
-      return undefined
-    }
+  // Engine calls throw on illegal moves. setState's updater runs inside React,
+  // not inside our call stack, so a try/catch wrapped *around* setState(...) never
+  // actually catches anything it throws — the error escapes during render and takes
+  // the whole app down. The fix: put the try/catch *inside* the updater itself, so it
+  // runs in the same scope as the throw.
+  function safeUpdate(compute: (s: GameState) => GameState) {
+    setState((s) => {
+      try {
+        return { ...compute(s), error: null }
+      } catch (err) {
+        return { ...s, error: err instanceof Error ? err.message : String(err) }
+      }
+    })
   }
 
   // --- draw phase -----------------------------------------------------------
 
   function handleDraw() {
-    withError(() => setState((s) => ({ ...s, draw: drawCard(s.draw) })))
+    safeUpdate((s) => ({ ...s, draw: drawCard(s.draw) }))
   }
 
   function handleResolveDraw(decision: 'keep' | 'discard') {
-    withError(() =>
-      setState((s) => {
-        const draw = resolveDraw(s.draw, decision)
-        if (!draw.complete) return { ...s, draw }
-        const hands = { p1: draw.hands[0], p2: draw.hands[1] }
-        return { ...s, draw, hands, phase: 'bidding' }
-      }),
-    )
+    safeUpdate((s) => {
+      const draw = resolveDraw(s.draw, decision)
+      if (!draw.complete) return { ...s, draw }
+      const hands = { p1: draw.hands[0], p2: draw.hands[1] }
+      return { ...s, draw, hands, phase: 'bidding' }
+    })
   }
 
   // --- bidding ---------------------------------------------------------------
 
   function handleBid(number: number, mode: Mode) {
-    withError(() =>
-      setState((s) => {
-        const bidding = applyTwoPBid(s.bidding, { playerId: s.bidding.currentBidder, number, mode })
-        return advanceAfterBidding(s, bidding)
-      }),
-    )
+    safeUpdate((s) => {
+      const bidding = applyTwoPBid(s.bidding, { playerId: s.bidding.currentBidder, number, mode })
+      return advanceAfterBidding(s, bidding)
+    })
   }
 
   function handlePass() {
-    withError(() =>
-      setState((s) => {
-        const bidding = applyTwoPBid(s.bidding, { playerId: s.bidding.currentBidder, pass: true })
-        return advanceAfterBidding(s, bidding)
-      }),
-    )
+    safeUpdate((s) => {
+      const bidding = applyTwoPBid(s.bidding, { playerId: s.bidding.currentBidder, pass: true })
+      return advanceAfterBidding(s, bidding)
+    })
   }
 
   function advanceAfterBidding(s: GameState, bidding: TwoPBiddingState): GameState {
@@ -327,16 +326,14 @@ export function TwoPlayerGame() {
   }
 
   function handleConfirmKitty(discardFromHand: Card[], takeFromKitty: Card[]) {
-    withError(() =>
-      setState((s) => {
-        const winner = (s.winningBid as Bid).playerId
-        const { hand, kitty } = applyKittyExchange(s.hands[winner], s.kitty, discardFromHand, takeFromKitty)
-        const next = { ...s, hands: { ...s.hands, [winner]: hand }, kitty }
-        // Exception path: kitty is resolved first, trump still needs naming.
-        // Normal path: trump was already named, so tricks can begin now.
-        return s.exceptionKittyFirst ? { ...next, phase: 'trump' } : beginTrickPlay(next)
-      }),
-    )
+    safeUpdate((s) => {
+      const winner = (s.winningBid as Bid).playerId
+      const { hand, kitty } = applyKittyExchange(s.hands[winner], s.kitty, discardFromHand, takeFromKitty)
+      const next = { ...s, hands: { ...s.hands, [winner]: hand }, kitty }
+      // Exception path: kitty is resolved first, trump still needs naming.
+      // Normal path: trump was already named, so tricks can begin now.
+      return s.exceptionKittyFirst ? { ...next, phase: 'trump' } : beginTrickPlay(next)
+    })
   }
 
   function beginTrickPlay(s: GameState): GameState {
@@ -346,36 +343,34 @@ export function TwoPlayerGame() {
   // --- trick play -----------------------------------------------------------
 
   function handlePlayCard(playerId: PlayerId, card: Card) {
-    withError(() =>
-      setState((s) => {
-        const trumpSuit = s.trumpSuit as Suit
-        if (!isLegalPlay(s.hands[playerId], s.trick, card, trumpSuit, s.trumpBroken)) {
-          throw new Error('That card is not a legal play right now')
-        }
-        const trick = playCard(s.trick, playerId, card)
-        const hands = {
-          ...s.hands,
-          [playerId]: s.hands[playerId].filter((c) => !(c.suit === card.suit && c.rank === card.rank)),
-        }
-        const trumpBroken = s.trumpBroken || cardBreaksTrump(card, trumpSuit)
+    safeUpdate((s) => {
+      const trumpSuit = s.trumpSuit as Suit
+      if (!isLegalPlay(s.hands[playerId], s.trick, card, trumpSuit, s.trumpBroken)) {
+        throw new Error('That card is not a legal play right now')
+      }
+      const trick = playCard(s.trick, playerId, card)
+      const hands = {
+        ...s.hands,
+        [playerId]: s.hands[playerId].filter((c) => !(c.suit === card.suit && c.rank === card.rank)),
+      }
+      const trumpBroken = s.trumpBroken || cardBreaksTrump(card, trumpSuit)
 
-        if (trick.plays.length < 2) {
-          return { ...s, trick, hands, trumpBroken }
-        }
+      if (trick.plays.length < 2) {
+        return { ...s, trick, hands, trumpBroken }
+      }
 
-        const winner = resolveTrick(trick, trumpSuit, (s.winningBid as Bid).mode)
-        const trickCounts = { ...s.trickCounts, [winner]: s.trickCounts[winner] + 1 }
-        const tricksPlayed = s.tricksPlayed + 1
-        const trickHistory = [...s.trickHistory, { plays: trick.plays, winner }]
-        const bidWinner = (s.winningBid as Bid).playerId
-        const defender = otherOf(bidWinner)
-        const target = computeTarget((s.winningBid as Bid).number)
-        const outcome = evaluateRoundStatus({ target, defendSideTricks: trickCounts[defender], tricksPlayed })
-        const phase = isRoundOver(outcome) ? 'round-end' : 'trick'
+      const winner = resolveTrick(trick, trumpSuit, (s.winningBid as Bid).mode)
+      const trickCounts = { ...s.trickCounts, [winner]: s.trickCounts[winner] + 1 }
+      const tricksPlayed = s.tricksPlayed + 1
+      const trickHistory = [...s.trickHistory, { plays: trick.plays, winner }]
+      const bidWinner = (s.winningBid as Bid).playerId
+      const defender = otherOf(bidWinner)
+      const target = computeTarget((s.winningBid as Bid).number)
+      const outcome = evaluateRoundStatus({ target, defendSideTricks: trickCounts[defender], tricksPlayed })
+      const phase = isRoundOver(outcome) ? 'round-end' : 'trick'
 
-        return { ...s, trick, hands, trumpBroken, trickCounts, tricksPlayed, trickHistory, outcome, phase }
-      }),
-    )
+      return { ...s, trick, hands, trumpBroken, trickCounts, tricksPlayed, trickHistory, outcome, phase }
+    })
   }
 
   function handleContinueAfterTrick() {
@@ -511,12 +506,15 @@ function BiddingView({
   const [number, setNumber] = useState(2)
   const [mode, setMode] = useState<Mode>('high')
   const isOpeningBid = state.bidding.bidsMade.length === 0
+  const current = state.bidding.currentBidder
+  const other = otherOf(current)
+  const bidsLeft = (id: PlayerId) => 2 - state.bidding.bidCounts[id]
 
   return (
     <section className="panel">
       <h2>Bidding</h2>
       <p className="turn-banner-inline">
-        {PLAYER_NAMES[state.bidding.currentBidder]}'s turn to bid
+        {PLAYER_NAMES[current]}'s turn to bid
         {isOpeningBid && ' — opener must bid, no passing yet'}
       </p>
       <p>
@@ -527,33 +525,52 @@ function BiddingView({
             : 'none'}
         </strong>
       </p>
-      <div className="button-row">
-        <select value={number} onChange={(e) => setNumber(Number(e.target.value))}>
-          {[2, 3, 4, 5, 6, 7].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-        <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
-          <option value="high">High</option>
-          <option value="low">Low</option>
-        </select>
-        <button type="button" className="pill-btn primary" onClick={() => onBid(number, mode)}>
-          Bid
-        </button>
-        <button type="button" className="pill-btn" onClick={onPass} disabled={isOpeningBid}>
-          Pass
-        </button>
+
+      <div className="table">
+        <div className="table-seat away">
+          <Hand playerId={other} hand={state.hands[other]} revealed={false} />
+        </div>
+
+        <div className="table-center">
+          <p className="badge-pixel">
+            {PLAYER_NAMES.p1.toUpperCase()} · {bidsLeft('p1')} BID{bidsLeft('p1') === 1 ? '' : 'S'} LEFT &nbsp;|&nbsp;{' '}
+            {PLAYER_NAMES.p2.toUpperCase()} · {bidsLeft('p2')} BID{bidsLeft('p2') === 1 ? '' : 'S'} LEFT
+          </p>
+          <div className="button-row">
+            <select value={number} onChange={(e) => setNumber(Number(e.target.value))}>
+              {[2, 3, 4, 5, 6, 7].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+            <button type="button" className="pill-btn primary" onClick={() => onBid(number, mode)}>
+              Bid
+            </button>
+            <button type="button" className="pill-btn" onClick={onPass} disabled={isOpeningBid}>
+              Pass
+            </button>
+          </div>
+          <div className="bid-history-wrap">
+            <h3>Bid history</h3>
+            <ul className="bid-history">
+              {state.bidding.bidsMade.map((action, i) => (
+                <li key={i}>
+                  {PLAYER_NAMES[action.playerId]}: {isPass(action) ? 'pass' : `${action.number} ${action.mode}`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="table-seat near">
+          <Hand playerId={current} hand={state.hands[current]} revealed />
+        </div>
       </div>
-      <h3>Bid history</h3>
-      <ul className="bid-history">
-        {state.bidding.bidsMade.map((action, i) => (
-          <li key={i}>
-            {PLAYER_NAMES[action.playerId]}: {isPass(action) ? 'pass' : `${action.number} ${action.mode}`}
-          </li>
-        ))}
-      </ul>
     </section>
   )
 }
