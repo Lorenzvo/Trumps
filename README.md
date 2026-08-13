@@ -62,6 +62,17 @@ the exact same `applyX` functions, just fed by different state sources.
 shortcut) and `Lobby` (live seat list, host-gated Start button, shareable room code via
 a `?room=` URL param — opening that link jumps straight to a "join this room" prompt).
 
+**Reconnection:** your room is remembered (`localStorage`, keyed off your stable
+per-browser `clientId`) and mirrored into the URL's `?room=` param. Refreshing,
+reopening a closed tab, or losing connection all resume straight back into the lobby or
+game — App.tsx checks "am I already seated here?" on load and skips the join flow
+entirely if so, rather than routing through `joinRoom` (which would otherwise reject a
+returning player once the game's left the lobby — that ordering bug is fixed too, but
+the resume path avoids hitting it in the first place). This only works on the *same*
+browser, since there's no account — a different device/browser is a different
+`clientId` and can't resume your seat. Clicking "Leave" explicitly clears the saved
+room, so it won't try to auto-resume next time.
+
 **Privacy caveat, worth knowing:** Firestore rules are currently wide open
 (`allow read, write: if true` on the whole `rooms` collection — see rationale in
 `firestore.rules`), and there's no per-seat auth. That means the *UI* never renders your

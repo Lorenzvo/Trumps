@@ -8,6 +8,7 @@
 import {
   doc,
   DocumentReference,
+  getDoc,
   onSnapshot,
   runTransaction,
   serverTimestamp,
@@ -97,11 +98,15 @@ export async function joinRoom(roomCode: string, name: string, clientId: string)
     const snap = await tx.get(ref)
     if (!snap.exists()) throw new Error(`No room found with code ${roomCode.toUpperCase()}`)
     const room = snap.data() as RoomDoc
-    if (room.status !== 'lobby') throw new Error('That game has already started')
-
     const order = seatOrderFor(room.mode)
+
+    // A previously-seated player rejoining (refresh, reconnect) is always fine, even
+    // mid-game — check this *before* the lobby-only check below, which is about
+    // blocking new players from joining a game that's already running.
     const alreadySeated = order.find((seat) => room.seats[seat]?.clientId === clientId)
-    if (alreadySeated) return // rejoining the same room in the same tab — no-op
+    if (alreadySeated) return
+
+    if (room.status !== 'lobby') throw new Error('That game has already started')
 
     const openSeat = order.find((seat) => !room.seats[seat])
     if (!openSeat) throw new Error('That room is already full')
@@ -114,6 +119,17 @@ export function subscribeToRoom(roomCode: string, onChange: (room: (RoomDoc & { 
   return onSnapshot(roomRef(roomCode), (snap) => {
     onChange(snap.exists() ? { ...(snap.data() as RoomDoc), code: roomCode.toUpperCase() } : null)
   })
+}
+
+/** One-off read (not live) — used to check "am I already seated here?" on app load,
+ *  before deciding whether to resume straight into the room or show the join screen. */
+export async function getRoomOnce(roomCode: string): Promise<(RoomDoc & { code: string }) | null> {
+  const snap = await getDoc(roomRef(roomCode))
+  return snap.exists() ? { ...(snap.data() as RoomDoc), code: roomCode.toUpperCase() } : null
+}
+
+export function isSeated(room: RoomDoc, clientId: string): boolean {
+  return Object.values(room.seats).some((seat) => seat?.clientId === clientId)
 }
 
 /** Host-only: deals the first round and marks the room as playing. */
