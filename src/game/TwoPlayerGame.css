@@ -252,8 +252,11 @@ select {
 }
 
 .card-chip:disabled {
-  opacity: 0.35;
+  filter: grayscale(85%);
+  opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
+  background: var(--surface-2);
 }
 
 .card-chip.selected {
