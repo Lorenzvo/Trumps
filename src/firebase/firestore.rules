@@ -1,0 +1,16 @@
+// Firestore Security Rules for the Trumps game. Paste into Firebase Console →
+// Firestore Database → Rules tab → Publish. (Not auto-deployed — no firebase-tools
+// CLI wired up yet, this is the manual-paste path.)
+//
+// No user accounts (per spec), so there's no server-side identity to check requests
+// against — anyone with a room code can read/write that room's document. That's an
+// acceptable trust model for a small friend group, not a public app. Scoped to just
+// the `rooms` collection, not the whole database.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /rooms/{roomCode} {
+      allow read, write: if true;
+    }
+  }
+}

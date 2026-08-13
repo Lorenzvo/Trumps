@@ -1,0 +1,94 @@
+.menu-screen {
+  text-align: center;
+}
+
+.menu-columns {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.menu-card {
+  flex: 1 1 16rem;
+  max-width: 20rem;
+}
+
+.mode-toggle {
+  justify-content: center;
+}
+
+.text-input {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  width: 100%;
+  max-width: 20rem;
+  margin: 0.5rem 0 0.75rem;
+  text-align: center;
+}
+
+.room-code-input {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.room-code-panel {
+  text-align: center;
+}
+
+.room-code-display {
+  font-family: var(--font-pixel);
+  font-size: 2.4rem;
+  letter-spacing: 0.25em;
+  color: var(--primary);
+  background: var(--surface-2);
+  border: 3px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin: 0.5rem auto;
+  max-width: 18rem;
+  cursor: pointer;
+  user-select: all;
+}
+
+.seat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.seat-list li {
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.seat-filled {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.seat-empty {
+  background: transparent;
+  border: 2px dashed var(--border);
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.host-badge {
+  margin: 0;
+  padding: 0.2rem 0.4rem;
+}
