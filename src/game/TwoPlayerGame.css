@@ -252,9 +252,15 @@ select {
 }
 
 .card-chip:disabled {
+  cursor: not-allowed;
+}
+
+/* Only cards that are specifically illegal to play right now grey out — a card that's
+   merely non-interactive (already played to the table, a preview, or it's not your
+   turn at all) stays full color, it's just not clickable. */
+.card-chip.illegal {
   filter: grayscale(85%);
   opacity: 0.5;
-  cursor: not-allowed;
   box-shadow: none;
   background: var(--surface-2);
 }

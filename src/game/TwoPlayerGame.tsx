@@ -185,13 +185,16 @@ function startRound(round: number, opener: PlayerId): GameState {
 function CardChip({
   card,
   onClick,
-  disabled,
+  illegal,
   selected,
   index = 0,
 }: {
   card: Card
   onClick?: () => void
-  disabled?: boolean
+  /** Greyed out: this specific card is an illegal play right now (off-suit while you
+   *  must follow, or trump before it's broken) — distinct from just "not clickable"
+   *  (a static display card, or it's simply not your turn), which should stay full-color. */
+  illegal?: boolean
   selected?: boolean
   index?: number
 }) {
@@ -199,10 +202,12 @@ function CardChip({
   return (
     <button
       type="button"
-      className={['card-chip', red ? 'red' : 'black', selected ? 'selected' : ''].join(' ').trim()}
+      className={['card-chip', red ? 'red' : 'black', selected ? 'selected' : '', illegal ? 'illegal' : '']
+        .join(' ')
+        .trim()}
       style={{ '--i': index } as React.CSSProperties}
       onClick={onClick}
-      disabled={!onClick || disabled}
+      disabled={!onClick || illegal}
     >
       <span className="card-rank">{card.rank}</span>
       <span className="card-suit">{SUIT_SYMBOL[card.suit]}</span>
@@ -245,7 +250,7 @@ function Hand({
                 card={card}
                 index={i}
                 onClick={onPlay ? () => onPlay(card) : undefined}
-                disabled={legal ? !legal.some((c) => c.suit === card.suit && c.rank === card.rank) : false}
+                illegal={legal ? !legal.some((c) => c.suit === card.suit && c.rank === card.rank) : false}
               />
             ))
           : hand.map((card, i) => <CardBack key={cardId(card)} index={i} />)}
