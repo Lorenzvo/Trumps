@@ -13,6 +13,30 @@ import './TwoPlayerGame.css'
 
 export const SUIT_SYMBOL: Record<Suit, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function isRedSuit(suit: Suit): boolean {
+  return suit === 'hearts' || suit === 'diamonds'
+}
+
+/** The trump indicator: a colored suit icon (matching the card art) plus mode and
+ *  broken/unbroken status as small pixel badges, rather than one long text string. */
+function TrumpBadge({ suit, mode, broken }: { suit: Suit; mode: Mode; broken: boolean }) {
+  return (
+    <div className="trump-badge">
+      <span className={`trump-suit-icon ${isRedSuit(suit) ? 'red' : 'black'}`}>{SUIT_SYMBOL[suit]}</span>
+      <div className="trump-badge-text">
+        <span className="badge-pixel">
+          TYPE: {mode === 'high' ? 'HIGH ↑' : 'LOW ↓'}
+        </span>
+        <span className="badge-pixel">{broken ? 'BROKEN' : 'UNBROKEN'}</span>
+      </div>
+    </div>
+  )
+}
+
 // --- rules modal, click-through step by step ------------------------------------
 
 const RULE_STEPS: Array<{ title: string; body: string }> = [
@@ -362,10 +386,10 @@ export function TrumpView({
             <button
               type="button"
               key={suit}
-              className={['pill-btn', 'suit-btn', suit === 'hearts' || suit === 'diamonds' ? 'red' : 'black'].join(' ')}
+              className={['pill-btn', 'suit-btn', isRedSuit(suit) ? 'red' : 'black'].join(' ')}
               onClick={() => onNameTrump(suit)}
             >
-              {SUIT_SYMBOL[suit]} {suit}
+              {SUIT_SYMBOL[suit]} {capitalize(suit)}
             </button>
           ))}
         </div>
@@ -489,10 +513,7 @@ export function TrickView({
   return (
     <section className="panel">
       <h2>Trick play</h2>
-      <p className="badge-pixel">
-        TRUMP {SUIT_SYMBOL[trumpSuit]} {trumpSuit.toUpperCase()} · {(state.winningBid as Bid).mode.toUpperCase()} ·{' '}
-        {state.trumpBroken ? 'BROKEN' : 'NOT BROKEN'}
-      </p>
+      <TrumpBadge suit={trumpSuit} mode={(state.winningBid as Bid).mode} broken={state.trumpBroken} />
       <p>
         Tricks played: {state.tricksPlayed}/12 &nbsp;|&nbsp; {state.names[bidWinner]} (bid side):{' '}
         <strong>{state.trickCounts[bidWinner]}</strong> &nbsp;|&nbsp; {state.names[defender]} (needs {target}):{' '}
@@ -542,7 +563,7 @@ export function TrickView({
           ) : (
             <p className="turn-banner-inline">
               {canAct ? 'Your turn to play' : `${state.names[toAct as PlayerId]} to play`}
-              {state.trick.ledSuit && ` (led suit: ${SUIT_SYMBOL[state.trick.ledSuit]} ${state.trick.ledSuit})`}
+              {state.trick.ledSuit && ` (led suit: ${SUIT_SYMBOL[state.trick.ledSuit]} ${capitalize(state.trick.ledSuit)})`}
             </p>
           )}
         </div>

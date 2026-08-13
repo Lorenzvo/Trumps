@@ -48,6 +48,42 @@
   margin: 0.5rem 0;
 }
 
+.trump-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--surface);
+  border: 3px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.8rem;
+  margin: 0.5rem 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.trump-suit-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.trump-suit-icon.red {
+  color: var(--suit-red);
+}
+
+.trump-suit-icon.black {
+  color: var(--suit-black);
+}
+
+.trump-badge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-start;
+}
+
+.trump-badge-text .badge-pixel {
+  margin: 0;
+}
+
 /* --- layout basics --- */
 
 .panel {
