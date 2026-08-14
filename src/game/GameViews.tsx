@@ -242,6 +242,7 @@ export function Hand({
   onPlay,
   legal,
   count,
+  labelPosition = 'top',
 }: {
   name: string
   hand: Card[]
@@ -252,25 +253,46 @@ export function Hand({
    *  (0 and counting up, comparable against the fixed "needs" target), not the card
    *  count, which defaults from hand.length everywhere else. */
   count?: number
+  /** Draw phase's away hand grows from 0, so with the label on top it just floats
+   *  above an empty reserved card-row with nothing under it yet — 'bottom' puts the
+   *  label right next to whatever's below this seat instead (the pile), which reads
+   *  better while the hand is still filling up. Everywhere else keeps the default. */
+  labelPosition?: 'top' | 'bottom'
 }) {
+  const label = (
+    <h3 className="hand-label">
+      {name} <span className="hand-count">· {count ?? hand.length}</span>
+    </h3>
+  )
+  const cards = (
+    <div className="hand-cards">
+      {revealed
+        ? hand.map((card, i) => (
+            <CardChip
+              key={cardId(card)}
+              card={card}
+              index={i}
+              onClick={onPlay ? () => onPlay(card) : undefined}
+              illegal={legal ? !legal.some((c) => c.suit === card.suit && c.rank === card.rank) : false}
+            />
+          ))
+        : hand.map((card, i) => <CardBack key={cardId(card)} index={i} />)}
+    </div>
+  )
+
   return (
     <div className={`hand ${revealed ? 'hand-revealed' : 'hand-hidden'}`}>
-      <h3 className="hand-label">
-        {name} <span className="hand-count">· {count ?? hand.length}</span>
-      </h3>
-      <div className="hand-cards">
-        {revealed
-          ? hand.map((card, i) => (
-              <CardChip
-                key={cardId(card)}
-                card={card}
-                index={i}
-                onClick={onPlay ? () => onPlay(card) : undefined}
-                illegal={legal ? !legal.some((c) => c.suit === card.suit && c.rank === card.rank) : false}
-              />
-            ))
-          : hand.map((card, i) => <CardBack key={cardId(card)} index={i} />)}
-      </div>
+      {labelPosition === 'top' ? (
+        <>
+          {label}
+          {cards}
+        </>
+      ) : (
+        <>
+          {cards}
+          {label}
+        </>
+      )}
     </div>
   )
 }
@@ -301,7 +323,7 @@ export function DrawPhaseView({
 
       <div className="table table-fixed">
         <div className="table-seat away">
-          <Hand name={state.names[otherPlayer]} hand={handFor(otherPlayer)} revealed={false} />
+          <Hand name={state.names[otherPlayer]} hand={handFor(otherPlayer)} revealed={false} labelPosition="bottom" />
         </div>
 
         <div className="table-center table-center-action">
