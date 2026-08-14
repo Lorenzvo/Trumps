@@ -752,6 +752,10 @@ select:hover {
   max-width: 30rem;
 }
 
+.match-controls {
+  margin-top: 1rem;
+}
+
 /* --- rules modal --- */
 
 .modal-backdrop {

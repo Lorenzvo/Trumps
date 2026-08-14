@@ -154,6 +154,43 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
   )
 }
 
+// --- confirm dialog, for anything destructive (forfeit, restart, ...) -----------
+
+export function ConfirmModal({
+  open,
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  title: string
+  body: string
+  confirmLabel: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  if (!open) return null
+
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <h2>{title}</h2>
+        <p className="modal-body">{body}</p>
+        <div className="button-row modal-actions">
+          <button type="button" className="pill-btn" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="pill-btn danger" onClick={onConfirm}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // --- card rendering ----------------------------------------------------------------
 
 export function CardChip({

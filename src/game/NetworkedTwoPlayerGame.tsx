@@ -9,9 +9,10 @@ import { useEffect, useState } from 'react'
 import type { Card, Mode, PlayerId, Suit } from '../engine'
 import { applyGameAction } from '../firebase/gameSync'
 import { fromFirestoreGame } from '../firebase/gameSerialize'
-import { subscribeToRoom, type RoomDoc } from '../firebase/rooms'
+import { endMatch, restartMatch, subscribeToRoom, type RoomDoc } from '../firebase/rooms'
 import {
   BiddingView,
+  ConfirmModal,
   DrawPhaseView,
   KittyView,
   RoundEndView,
@@ -45,6 +46,7 @@ export function NetworkedTwoPlayerGame({
   const [room, setRoom] = useState<(RoomDoc & { code: string }) | null | undefined>(undefined)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState<'forfeit' | 'restart' | null>(null)
 
   useEffect(() => subscribeToRoom(roomCode, setRoom), [roomCode])
 
@@ -93,11 +95,48 @@ export function NetworkedTwoPlayerGame({
     )
   }
 
+  if (room.status === 'ended') {
+    const endedByName = room.endedBy ? room.game.names[room.endedBy] : 'A player'
+    return (
+      <div className="game">
+        <section className="panel result-panel">
+          <h2>Match ended</h2>
+          <p>{endedByName} ended the match early.</p>
+          <div className="button-row">
+            <button type="button" className="pill-btn primary" onClick={() => restartMatch(roomCode).catch((err) => setError(String(err)))}>
+              🔄 Play again
+            </button>
+            <button type="button" className="pill-btn" onClick={onLeave}>
+              ← Back to menu
+            </button>
+          </div>
+          {error && <p className="error">{error}</p>}
+        </section>
+      </div>
+    )
+  }
+
   const game = fromFirestoreGame(room.game)
 
   function act(compute: (s: TwoPlayerGameState) => TwoPlayerGameState) {
     setError(null)
     applyGameAction(roomCode, compute).catch((err) => {
+      setError(err instanceof Error ? err.message : String(err))
+    })
+  }
+
+  function handleForfeit() {
+    setConfirming(null)
+    setError(null)
+    endMatch(roomCode, myPlayerId as PlayerId).catch((err) => {
+      setError(err instanceof Error ? err.message : String(err))
+    })
+  }
+
+  function handleRestart() {
+    setConfirming(null)
+    setError(null)
+    restartMatch(roomCode).catch((err) => {
       setError(err instanceof Error ? err.message : String(err))
     })
   }
@@ -161,9 +200,34 @@ export function NetworkedTwoPlayerGame({
       )}
       {game.phase === 'round-end' && <RoundEndView state={game} onNextRound={() => act(applyNextRound)} />}
 
-      <button type="button" className="pill-btn" onClick={onLeave}>
-        ← Leave game
-      </button>
+      <div className="button-row match-controls">
+        <button type="button" className="pill-btn" onClick={onLeave}>
+          ← Leave game
+        </button>
+        <button type="button" className="pill-btn" onClick={() => setConfirming('restart')}>
+          🔄 Restart match
+        </button>
+        <button type="button" className="pill-btn danger" onClick={() => setConfirming('forfeit')}>
+          🏳 Forfeit match
+        </button>
+      </div>
+
+      <ConfirmModal
+        open={confirming === 'forfeit'}
+        title="Forfeit the match?"
+        body="This will end the match for both players right now — you'll both be returned to the main menu. This can't be undone."
+        confirmLabel="Forfeit match"
+        onConfirm={handleForfeit}
+        onCancel={() => setConfirming(null)}
+      />
+      <ConfirmModal
+        open={confirming === 'restart'}
+        title="Restart the match?"
+        body="This will reset the match back to round 1 for both players — current scores and progress are lost. You'll stay in the same room."
+        confirmLabel="Restart match"
+        onConfirm={handleRestart}
+        onCancel={() => setConfirming(null)}
+      />
     </div>
   )
 }

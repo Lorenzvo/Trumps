@@ -193,3 +193,9 @@ export function applyEndRoundEarly(s: TwoPlayerGameState): TwoPlayerGameState {
 export function applyNextRound(s: TwoPlayerGameState): TwoPlayerGameState {
   return startTwoPlayerRound(s.round + 1, nextTwoPOpener(s.opener, PLAYERS), s.names)
 }
+
+/** Scraps the current match and deals a fresh round 1 — same names/seats, everything
+ *  else reset. Mirrors how a match starts in the first place (rooms.ts's startGame). */
+export function applyRestartMatch(s: TwoPlayerGameState): TwoPlayerGameState {
+  return startTwoPlayerRound(1, PLAYERS[0], s.names)
+}

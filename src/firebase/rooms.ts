@@ -24,7 +24,7 @@ const CODE_LENGTH = 5
 const MAX_CREATE_ATTEMPTS = 5
 
 export type GameMode = '2p' | '4p'
-export type RoomStatus = 'lobby' | 'playing'
+export type RoomStatus = 'lobby' | 'playing' | 'ended'
 
 export interface Seat {
   clientId: string
@@ -43,6 +43,10 @@ export interface RoomDoc {
   // Stored Firestore-safe (see gameSerialize.ts) — convert with fromFirestoreGame
   // before handing it to the reducer/views.
   game?: FirestoreGameState | null
+  // Present once status === 'ended' — who forfeited, so the other player's screen
+  // can say so instead of just "the room is gone". Explicitly nulled out (rather than
+  // just left stale) when a restart clears it back to a normal 'playing' room.
+  endedBy?: PlayerId | null
 }
 
 function seatOrderFor(mode: GameMode): string[] {
@@ -153,5 +157,42 @@ export async function startGame(roomCode: string): Promise<void> {
     }
     const game = toFirestoreGame(startTwoPlayerRound(1, 'p1', names))
     tx.update(ref, { status: 'playing', game })
+  })
+}
+
+/** Either player can end a live match for both — sets status to 'ended' rather than
+ *  deleting the room, so the other player's live subscription can show who ended it
+ *  instead of just "this room no longer exists". */
+export async function endMatch(roomCode: string, endedBy: PlayerId): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.status !== 'playing') throw new Error('The match is not in progress')
+    tx.update(ref, { status: 'ended', endedBy })
+  })
+}
+
+/** Scraps the current match and deals a fresh round 1 for the same two seats — usable
+ *  either mid-match or from the 'ended' screen (a de-facto "play again"), so this sets
+ *  status back to 'playing' and clears endedBy unconditionally rather than going
+ *  through the generic applyGameAction (which only touches the `game` field, not
+ *  `status` — restarting from 'ended' needs both to flip together in one write). */
+export async function restartMatch(roomCode: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.mode !== '2p') throw new Error('Only 2P games are wired up currently')
+    if (room.status === 'lobby') throw new Error('The match has not started yet')
+
+    const names: Record<PlayerId, string> = {
+      p1: room.seats.p1!.name,
+      p2: room.seats.p2!.name,
+    }
+    const game = toFirestoreGame(startTwoPlayerRound(1, 'p1', names))
+    tx.update(ref, { status: 'playing', game, endedBy: null })
   })
 }
