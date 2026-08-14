@@ -36,13 +36,6 @@ export function sortHandForDisplay(hand: readonly Card[], mode: Mode = 'high'): 
   })
 }
 
-/** How many more tricks a player needs to lock in their side's win — the defender's
- *  own bid target, or (TOTAL_TRICKS + 1 - target) for the bid side, which is the
- *  count that mathematically guarantees the defender can no longer reach theirs. */
-export function tricksNeeded(target: number, current: number): number {
-  return Math.max(0, target - current)
-}
-
 /** Renders as CSS-gapped entries rather than hand-joining strings with &nbsp;/text —
  *  manual whitespace between a JSX text node and the next expression is easy to get
  *  subtly uneven (trailing spaces around &nbsp; stack with JSX's own line-join space). */
@@ -93,7 +86,7 @@ const RULE_STEPS: Array<{ title: string; body: string }> = [
   },
   {
     title: 'Bidding',
-    body: 'Whoever drew first opens (they can\'t pass). A bid is a number 2-7 plus High or Low — the number means the opponent needs 8 minus that number tricks to win. A higher number always beats a lower one; at equal numbers Low beats High. Each player gets up to 2 bids: raise or pass.',
+    body: 'Whoever drew first opens (can\'t pass). A bid is a number 2-7 plus High or Low — it sets how many tricks (8 minus the bid) the opponent needs to win. Higher numbers beat lower ones; ties go to Low. Each player gets up to 2 bids: raise or pass.',
   },
   {
     title: 'Trump',
@@ -211,17 +204,22 @@ export function Hand({
   revealed,
   onPlay,
   legal,
+  count,
 }: {
   name: string
   hand: Card[]
   revealed: boolean
   onPlay?: (card: Card) => void
   legal?: Card[]
+  /** Overrides the displayed number — during trick play this is tricks won so far
+   *  (0 and counting up, comparable against the fixed "needs" target), not the card
+   *  count, which defaults from hand.length everywhere else. */
+  count?: number
 }) {
   return (
     <div className={`hand ${revealed ? 'hand-revealed' : 'hand-hidden'}`}>
       <h3 className="hand-label">
-        {name} <span className="hand-count">· {hand.length}</span>
+        {name} <span className="hand-count">· {count ?? hand.length}</span>
       </h3>
       <div className="hand-cards">
         {revealed
@@ -594,16 +592,21 @@ export function TrickView({
       <NeedsRow
         entries={PLAYERS.map((p) => ({
           name: state.names[p],
-          need: tricksNeeded(p === defender ? target : bidSideTarget, state.trickCounts[p]),
+          need: p === defender ? target : bidSideTarget,
         }))}
       />
 
       <div className="table table-fixed">
         <div className="table-seat away">
-          <Hand name={state.names[otherPlayer]} hand={state.hands[otherPlayer]} revealed={false} />
+          <Hand
+            name={state.names[otherPlayer]}
+            hand={state.hands[otherPlayer]}
+            revealed={false}
+            count={state.trickCounts[otherPlayer]}
+          />
         </div>
 
-        <div className="table-center table-center-action">
+        <div className="table-center table-center-trick">
           <div className="trick-area">
             {state.trick.plays.length === 0 && <p>{state.names[leader]} leads.</p>}
             {state.trick.plays.map((p) => (
@@ -660,6 +663,7 @@ export function TrickView({
             revealed
             onPlay={canAct ? onPlayCard : undefined}
             legal={canAct ? legalCardsToPlay(state.hands[viewerPlayerId], state.trick, trumpSuit, state.trumpBroken) : undefined}
+            count={state.trickCounts[viewerPlayerId]}
           />
         </div>
       </div>

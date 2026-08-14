@@ -351,30 +351,28 @@ select:hover {
   }
 }
 
+/* Capped to exactly 6 cards per row (6 * 3.4rem card + 5 * 0.4rem gap), on *any*
+   viewport width — without this, a wide desktop window fits all 12 cards on one very
+   long row instead of wrapping, which made the table balloon sideways. Applies to
+   both revealed and face-down hands — the away (opponent) hand used to fan out with
+   overlapping negative margins instead, which had the same one-long-row problem at 12
+   cards and doesn't wrap cleanly across two rows, so it's gone in favor of this same
+   plain grid used everywhere. */
 .hand-cards {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin: 0.5rem 0 1rem;
+  margin: 0.5rem auto 1rem;
   justify-content: center;
+  max-width: 22.4rem;
+  align-content: flex-start;
   /* Reserves one card-row's worth of height even at 0 cards, so an empty vs.
      non-empty hand (e.g. the hidden away hand right after a fresh deal) doesn't
-     change this element's height — an empty flex container collapses to ~0 otherwise. */
+     change this element's height — an empty flex container collapses to ~0 otherwise.
+     Only a single row is reserved, not a full 2-row minimum: a hand growing from 1 row
+     to 2 partway through a round is one small, gradual, expected change — not worth
+     reserving 2 rows' worth of empty space for the whole rest of the round. */
   min-height: 4.8rem;
-}
-
-/* Capped to exactly 6 cards per row (6 * 3.4rem card + 5 * 0.4rem gap), on *any*
-   viewport width — without this, a wide desktop window fits all 12 cards on one very
-   long row instead of wrapping, which was worse than the resizing it was meant to fix.
-   Only a single row is reserved (inherited from .hand-cards above) rather than a full
-   2-row minimum: a hand growing from 1 row to 2 partway through the draw phase is one
-   small, gradual, expected change — not worth the height cost of reserving 2 rows'
-   worth of empty space for the entire rest of the round. */
-.table-seat.near .hand-cards {
-  max-width: 22.4rem;
-  margin-left: auto;
-  margin-right: auto;
-  align-content: flex-start;
 }
 
 .card-chip {
@@ -561,13 +559,23 @@ select:hover {
   justify-content: center;
 }
 
+/* Trick play is naturally much shorter than draw/bidding/kitty content
+   (measured ~266px live), so it gets its own smaller floor instead of
+   sharing draw phase's 19.5rem. It can still grow a little on the rare
+   "clinch" trick (extra hint text + a second button) — that's a real
+   content change, not arbitrary resizing. */
+.table-center-trick {
+  min-height: 15rem;
+  justify-content: center;
+}
+
 /* Draw phase: pile info and the keep/discard decision sit side by side on desktop
    (more horizontal, less tall) and stack on narrow/mobile screens. */
 .draw-center {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   gap: 2rem;
   width: 100%;
@@ -616,18 +624,6 @@ select:hover {
 
 .hand-count {
   opacity: 0.75;
-}
-
-.hand-hidden .hand-cards {
-  gap: -0.5rem;
-}
-
-.hand-hidden .card-back {
-  margin-left: -0.6rem;
-}
-
-.hand-hidden .card-back:first-child {
-  margin-left: 0;
 }
 
 .draw-decision {
@@ -715,8 +711,9 @@ select:hover {
   width: 100%;
   /* Fixed height regardless of step content length — the shortest step and the
      longest step (Bidding) both fit within this, so the modal never resizes as you
-     click through. */
-  height: 24rem;
+     click through. A little taller than the tightest fit so Bidding's text doesn't
+     crowd the Next button against the bottom edge. */
+  height: 26rem;
   display: flex;
   flex-direction: column;
   text-align: center;

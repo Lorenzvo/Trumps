@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { canOfferEarlyEnd, computeTarget, isPass, legalCardsToPlay, SUITS, TOTAL_TRICKS } from '../engine'
 import type { Card, Mode, PlayerId, Suit } from '../engine'
-import { CardBack, CardChip, Hand, NeedsRow, SUIT_SYMBOL, TrumpBadge, capitalize, isRedSuit, sortHandForDisplay, tricksNeeded } from './GameViews'
+import { CardBack, CardChip, Hand, NeedsRow, SUIT_SYMBOL, TrumpBadge, capitalize, isRedSuit, sortHandForDisplay } from './GameViews'
 import {
   nextToActInTrick,
   opposingTeam,
@@ -39,11 +39,21 @@ function MiniHand({ name, count }: { name: string; count: number }) {
   )
 }
 
-function OpponentRow({ state, viewerPlayerId }: { state: FourPlayerGameState; viewerPlayerId: PlayerId }) {
+function OpponentRow({
+  state,
+  viewerPlayerId,
+  countFor,
+}: {
+  state: FourPlayerGameState
+  viewerPlayerId: PlayerId
+  /** Defaults to card count; TrickView passes team tricks-won instead. */
+  countFor?: (playerId: PlayerId) => number
+}) {
+  const getCount = countFor ?? ((p: PlayerId) => state.hands[p].length)
   return (
     <div className="table-seat away-row">
       {otherSeatsInOrder(state, viewerPlayerId).map((p) => (
-        <MiniHand key={p} name={`${state.names[p]} (${state.teams[p]})`} count={state.hands[p].length} />
+        <MiniHand key={p} name={`${state.names[p]} (${state.teams[p]})`} count={getCount(p)} />
       ))}
     </div>
   )
@@ -333,14 +343,14 @@ export function TrickView4P({
       <NeedsRow
         entries={[teamA, teamB].map((team) => ({
           name: team,
-          need: tricksNeeded(team === defendTeam ? target : bidSideTarget, teamTricks(state, team)),
+          need: team === defendTeam ? target : bidSideTarget,
         }))}
       />
 
       <div className="table table-fixed">
-        <OpponentRow state={state} viewerPlayerId={viewerPlayerId} />
+        <OpponentRow state={state} viewerPlayerId={viewerPlayerId} countFor={(p) => teamTricks(state, state.teams[p])} />
 
-        <div className="table-center table-center-action">
+        <div className="table-center table-center-trick">
           <div className="trick-area">
             {state.trick.plays.length === 0 && <p>{state.names[state.trickLeader as PlayerId]} leads.</p>}
             {state.trick.plays.map((p) => (
@@ -397,6 +407,7 @@ export function TrickView4P({
             revealed
             onPlay={canAct ? onPlayCard : undefined}
             legal={canAct ? legalCardsToPlay(state.hands[viewerPlayerId], state.trick, trumpSuit, state.trumpBroken) : undefined}
+            count={teamTricks(state, state.teams[viewerPlayerId])}
           />
         </div>
       </div>
