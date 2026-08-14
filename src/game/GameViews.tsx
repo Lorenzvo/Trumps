@@ -13,17 +13,17 @@ import './TwoPlayerGame.css'
 
 export const SUIT_SYMBOL: Record<Suit, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }
 
-function capitalize(s: string): string {
+export function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-function isRedSuit(suit: Suit): boolean {
+export function isRedSuit(suit: Suit): boolean {
   return suit === 'hearts' || suit === 'diamonds'
 }
 
 /** The trump indicator: a colored suit icon (matching the card art) plus mode and
  *  broken/unbroken status as small pixel badges, rather than one long text string. */
-function TrumpBadge({ suit, mode, broken }: { suit: Suit; mode: Mode; broken: boolean }) {
+export function TrumpBadge({ suit, mode, broken }: { suit: Suit; mode: Mode; broken: boolean }) {
   return (
     <div className="trump-badge">
       <span className={`trump-suit-icon ${isRedSuit(suit) ? 'red' : 'black'}`}>{SUIT_SYMBOL[suit]}</span>

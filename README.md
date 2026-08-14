@@ -47,6 +47,12 @@ face-down. Two thin wrappers consume the same views:
 This split means hot-seat and networked play can never drift apart on rules — they run
 the exact same `applyX` functions, just fed by different state sources.
 
+`src/game/fourPlayerReducer.ts` + `GameViews4P.tsx` are the 4-seat counterpart, same
+shape (no draw phase, per spec; "sides" are teams of 2, so trick counts aggregate by
+team via `teamTricks`). `FourPlayerGame.tsx` is a local hot-seat wrapper, same
+pass-and-play model as 2P's. Reachable from the main menu's practice-mode links.
+**Not networked yet** — no 4P rooms/Firestore wiring, that's the next step.
+
 ## Multiplayer
 
 `src/firebase/` holds the Firestore layer:
@@ -95,31 +101,34 @@ npm run lint         # oxlint
 
 ## Status
 
-Engine core is built and tested (65 tests). Menu → create/join room → live lobby →
+Engine core is built and tested (83 tests). Menu → create/join room → live lobby →
 networked 2P gameplay is wired end-to-end through Firestore: draw phase, bidding,
 trump, kitty exchange, tricks, round end, next round all read/write the room's synced
 game document, gated so only the player whose turn it is can act and only your own
-hand ever renders face-up. Local hot-seat "practice mode" still exists side by side,
-sharing the same engine/views. 4P mode and pixel art are still untouched.
-
-**Not yet verified in a live browser this session** — the automation tooling I use to
-self-check UI changes was disconnected throughout, so this networked layer is
-typecheck/build-clean but hasn't been watched running across two real devices by me.
-Worth testing thoroughly: does the lobby's `game` field actually appear once Start is
-clicked, do both clients' UIs advance in step, does refreshing either tab recover state
-correctly, does turn-gating actually hide the right controls on each side.
+hand ever renders face-up. Local hot-seat "practice mode" exists for both 2P and 4P,
+sharing the same engine/views as the real thing. Visual pass done (fonts, felt table,
+card-pop animations, phase transitions) — see the git log for specifics. 4P is
+local-only so far (no rooms/Firestore); pixel-art sprites are still untouched.
 
 ### Known gaps / backlog
 
-- **Real hand privacy:** see the privacy caveat above — UI-level only, not server-enforced.
-- **4-player mode:** engine supports it (bidding, rotation, dealing); room creation
-  explicitly rejects `'4p'` for now (`createRoom` throws) until 2P is fully solid.
-- **Card draw animation:** working (CSS pop-in on every new card), could still use a
-  more literal "flies from the pile" motion path rather than pop-in-place.
-- **Visual design:** Baloo 2 / Silkscreen + a warm color system is in place; pixel-art
-  card sprites per `trumps-spec.md` §2/Day 5 are still not started.
+- **4P networking:** the engine/state/views are done and tested (see
+  `fourPlayerReducer.ts` / `GameViews4P.tsx`), but there's no room support yet —
+  `createRoom` still rejects `'4p'`. Needs: 4-seat lobby, host-assigned team seating
+  (`validateFourPSeating`/`buildFourPBidOrder` already exist for this), and a
+  `NetworkedFourPlayerGame` mirroring the 2P networked wrapper.
+- **Real hand privacy:** Firestore rules are wide open (`allow read, write: if true`
+  on `rooms` — see `firestore.rules`), no per-seat auth. The UI never renders your
+  opponent's (or in 4P, your partner's kitty view) hand, but the full room document is
+  technically sent to every connected browser, inspectable via devtools. Fine for a
+  small friend group; not a real security boundary. Fixing it needs per-seat
+  documents/subcollections + some form of auth (even anonymous) to check identity
+  against.
+- **Visual design:** Baloo 2 / Silkscreen + a warm color system, felt table, card
+  animations all in place; pixel-art card sprites per `trumps-spec.md` §2/Day 5 are
+  still not started.
 - **Simultaneous "Next round" race:** if both players click it within the same instant,
   a round could theoretically get skipped (each transaction advances by one round from
   whatever it reads). Rare in practice, not guarded against.
-- **Bundle size:** production build is ~680KB (mostly the Firebase SDK) — fine for now,
+- **Bundle size:** production build is ~695KB (mostly the Firebase SDK) — fine for now,
   candidate for code-splitting later if it matters.

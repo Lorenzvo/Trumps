@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getClientId } from './firebase/clientId'
 import { getRoomOnce, isSeated } from './firebase/rooms'
+import { FourPlayerGame } from './game/FourPlayerGame'
 import { NetworkedTwoPlayerGame } from './game/NetworkedTwoPlayerGame'
 import { TwoPlayerGame } from './game/TwoPlayerGame'
 import { Lobby } from './menu/Lobby'
 import { MainMenu } from './menu/MainMenu'
 
-type Screen = 'resolving' | 'menu' | 'lobby' | 'game' | 'practice'
+type Screen = 'resolving' | 'menu' | 'lobby' | 'game' | 'practice' | 'practice4p'
 
 const LAST_ROOM_KEY = 'trumps-last-room'
 
@@ -103,6 +104,20 @@ function App() {
     )
   }
 
+  if (screen === 'practice4p') {
+    return (
+      <div>
+        <div className="practice-bar">
+          <button type="button" className="pill-btn" onClick={() => setScreen('menu')}>
+            ← Back to menu
+          </button>
+          <span className="badge-pixel">4P PRACTICE MODE · LOCAL HOT-SEAT</span>
+        </div>
+        <FourPlayerGame />
+      </div>
+    )
+  }
+
   if (screen === 'menu') {
     return (
       <MainMenu
@@ -110,6 +125,7 @@ function App() {
         initialRoomCode={initialRoomCode}
         onEntered={handleEntered}
         onPractice={() => setScreen('practice')}
+        onPractice4p={() => setScreen('practice4p')}
       />
     )
   }
@@ -122,7 +138,14 @@ function App() {
     return <NetworkedTwoPlayerGame roomCode={roomCode} clientId={clientId} onLeave={handleLeave} />
   }
 
-  return <MainMenu clientId={clientId} onEntered={handleEntered} onPractice={() => setScreen('practice')} />
+  return (
+    <MainMenu
+      clientId={clientId}
+      onEntered={handleEntered}
+      onPractice={() => setScreen('practice')}
+      onPractice4p={() => setScreen('practice4p')}
+    />
+  )
 }
 
 export default App

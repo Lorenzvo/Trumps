@@ -397,6 +397,23 @@ select:hover {
   opacity: 0.9;
 }
 
+.away-row {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  opacity: 0.9;
+}
+
+.mini-hand .hand-cards {
+  margin: 0.25rem 0;
+}
+
+.mini-hand .card-back {
+  width: 2.6rem;
+  height: 3.6rem;
+}
+
 .table-center {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 16px;

@@ -18,11 +18,13 @@ export function MainMenu({
   initialRoomCode,
   onEntered,
   onPractice,
+  onPractice4p,
 }: {
   clientId: string
   initialRoomCode?: string
   onEntered: (roomCode: string) => void
   onPractice: () => void
+  onPractice4p: () => void
 }) {
   const [name, setName] = useState(() => localStorage.getItem(NAME_STORAGE_KEY) ?? '')
   const [mode, setMode] = useState<GameMode>('2p')
@@ -165,8 +167,13 @@ export function MainMenu({
 
       <p className="hint">
         <button type="button" className="link-btn" onClick={onPractice}>
-          Or try practice mode (local, no room needed)
+          Try 2P practice mode
         </button>
+        {' · '}
+        <button type="button" className="link-btn" onClick={onPractice4p}>
+          Try 4P practice mode
+        </button>
+        {' '}(local, no room needed)
       </p>
     </div>
   )
