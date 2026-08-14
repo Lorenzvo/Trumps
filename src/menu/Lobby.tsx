@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { RoomDoc } from '../firebase/rooms'
-import { startGame, subscribeToRoom } from '../firebase/rooms'
+import { setTrackPlayedCards, startGame, subscribeToRoom } from '../firebase/rooms'
 import './Menu.css'
 
 const SEAT_ORDER: Record<'2p' | '4p', string[]> = {
@@ -59,6 +59,7 @@ export function Lobby({
   const order = SEAT_ORDER[room.mode]
   const isHost = room.hostClientId === clientId
   const isFull = order.every((seat) => room.seats[seat])
+  const hostName = Object.values(room.seats).find((seat) => seat?.clientId === room.hostClientId)?.name ?? 'the host'
 
   async function handleStart() {
     setError(null)
@@ -73,6 +74,15 @@ export function Lobby({
     navigator.clipboard.writeText(code)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
+  }
+
+  async function handleToggleTrackPlayed() {
+    setError(null)
+    try {
+      await setTrackPlayedCards(roomCode, clientId, !room?.trackPlayedCardsEnabled)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
   }
 
   return (
@@ -112,6 +122,24 @@ export function Lobby({
         ) : (
           <p className="hint">Waiting for the host to start the game…</p>
         )}
+      </section>
+
+      <section className="panel">
+        <h2>Match settings</h2>
+        <label className={`setting-toggle ${isHost ? '' : 'setting-toggle-readonly'}`}>
+          <input
+            type="checkbox"
+            checked={room.trackPlayedCardsEnabled ?? false}
+            disabled={!isHost}
+            onChange={isHost ? handleToggleTrackPlayed : undefined}
+          />
+          <span className="setting-toggle-slider" aria-hidden="true" />
+          <span>
+            Track played cards
+            <span className="hint"> — lets both players open a list of cards already played this round.</span>
+          </span>
+        </label>
+        {!isHost && <p className="hint">Only {hostName} can change this.</p>}
       </section>
 
       <button type="button" className="pill-btn" onClick={onLeave}>

@@ -47,6 +47,10 @@ export interface RoomDoc {
   // can say so instead of just "the room is gone". Explicitly nulled out (rather than
   // just left stale) when a restart clears it back to a normal 'playing' room.
   endedBy?: PlayerId | null
+  // Host-only setting, chosen in the lobby before the match starts — a house rule
+  // both players are bound by equally, not a personal per-player preference. Missing
+  // (older rooms created before this existed) is treated as false everywhere it's read.
+  trackPlayedCardsEnabled?: boolean
 }
 
 function seatOrderFor(mode: GameMode): string[] {
@@ -83,6 +87,7 @@ export async function createRoom(mode: GameMode, hostName: string, hostClientId:
           hostClientId,
           createdAt: serverTimestamp(),
           seats,
+          trackPlayedCardsEnabled: false,
         }
         tx.set(ref, room)
       })
@@ -134,6 +139,21 @@ export async function getRoomOnce(roomCode: string): Promise<(RoomDoc & { code: 
 
 export function isSeated(room: RoomDoc, clientId: string): boolean {
   return Object.values(room.seats).some((seat) => seat?.clientId === clientId)
+}
+
+/** Host-only, lobby-only: flips the "track played cards" house rule for the match
+ *  about to start. Both players are bound by whatever this is set to once the game
+ *  starts — it's not a per-player preference, so it can't be changed mid-match. */
+export async function setTrackPlayedCards(roomCode: string, clientId: string, enabled: boolean): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.hostClientId !== clientId) throw new Error('Only the host can change this setting')
+    if (room.status !== 'lobby') throw new Error('This can only be changed before the match starts')
+    tx.update(ref, { trackPlayedCardsEnabled: enabled })
+  })
 }
 
 /** Host-only: deals the first round and marks the room as playing. */
