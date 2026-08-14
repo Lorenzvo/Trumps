@@ -12,6 +12,25 @@
 .menu-card {
   flex: 1 1 16rem;
   max-width: 20rem;
+  /* Flex column with one consistent gap between h2/content/button, instead of each
+     child's own ad-hoc margin stacking up unevenly (input had asymmetric top/bottom
+     margin, the button had none at all) — see the .text-input override below. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.menu-card .text-input {
+  margin: 0;
+}
+
+/* The "Your name" box was spanning the same ~52rem width as everything else on the
+   page for a single centered input that's itself capped at 20rem (.text-input) —
+   left a lot of empty side padding. Narrowed to hug its content instead. */
+.name-panel {
+  max-width: 26rem;
+  margin: 1rem auto;
 }
 
 .mode-toggle {

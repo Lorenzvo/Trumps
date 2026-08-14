@@ -110,7 +110,7 @@ export function MainMenu({
 
       {error && <p className="error">{error}</p>}
 
-      <section className="panel">
+      <section className="panel name-panel">
         <h2>Your name</h2>
         <input
           type="text"
