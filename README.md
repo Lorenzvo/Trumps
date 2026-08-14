@@ -106,9 +106,17 @@ networked 2P gameplay is wired end-to-end through Firestore: draw phase, bidding
 trump, kitty exchange, tricks, round end, next round all read/write the room's synced
 game document, gated so only the player whose turn it is can act and only your own
 hand ever renders face-up. Local hot-seat "practice mode" exists for both 2P and 4P,
-sharing the same engine/views as the real thing. Visual pass done (fonts, felt table,
-card-pop animations, phase transitions) — see the git log for specifics. 4P is
-local-only so far (no rooms/Firestore); pixel-art sprites are still untouched.
+sharing the same engine/views as the real thing. 4P is local-only so far (no
+rooms/Firestore); pixel-art sprites are still untouched.
+
+Two playtesting-driven polish passes done since the initial visual pass — see git log
+for specifics, but notably: the trump/mode/broken indicator is three separate boxes
+(colored yes/no for "can lead trump") instead of one bundled string; trick progress and
+each side's remaining-tricks-to-win are centered above the table instead of buried in
+corner text; hands auto-sort by suit (alternating red/black) and rank on every render;
+draw and trick phases (and each phase internally) never resize as content changes —
+fixed-height containers instead of shrink-wrapping; only the trick's actual winner can
+advance to the next trick, everyone else sees a waiting message.
 
 ### Known gaps / backlog
 
@@ -127,6 +135,9 @@ local-only so far (no rooms/Firestore); pixel-art sprites are still untouched.
 - **Visual design:** Baloo 2 / Silkscreen + a warm color system, felt table, card
   animations all in place; pixel-art card sprites per `trumps-spec.md` §2/Day 5 are
   still not started.
+- **Rules modal mini-animations:** deferred — small animated examples (a card being
+  drawn into a hand, a kitty look) using the same components, rather than text-only
+  steps. Would help but is more involved than the rest of this list; not started.
 - **Simultaneous "Next round" race:** if both players click it within the same instant,
   a round could theoretically get skipped (each transaction advances by one round from
   whatever it reads). Rare in practice, not guarded against.

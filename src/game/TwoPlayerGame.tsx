@@ -49,7 +49,9 @@ function hotSeatViewer(state: TwoPlayerGameState): PlayerId {
       return (state.winningBid as { playerId: PlayerId }).playerId
     case 'trick': {
       const leader = state.trickLeader as PlayerId
-      if (state.trick.plays.length === 2) return state.trick.plays[0]?.playerId ?? leader
+      // Once the trick is complete, only its winner can advance to the next one — so
+      // hot-seat has to show *their* perspective here, not just whoever played first.
+      if (state.trick.plays.length === 2) return state.trickHistory[state.trickHistory.length - 1]?.winner ?? leader
       return state.trick.plays.length === 0 ? leader : otherOf(state.trick.plays[0].playerId)
     }
     case 'round-end':
@@ -77,7 +79,7 @@ export function TwoPlayerGame() {
     <div className="game">
       <header className="game-header">
         <div className="title-row">
-          <h1>🂡 Trumps</h1>
+          <h1>Trumps</h1>
           <button type="button" className="pill-btn" onClick={() => setRulesOpen(true)}>
             📖 Rules
           </button>

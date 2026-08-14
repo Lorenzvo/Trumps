@@ -60,7 +60,7 @@ export function FourPlayerGame() {
     <div className="game">
       <header className="game-header">
         <div className="title-row">
-          <h1>🂡 Trumps</h1>
+          <h1>Trumps</h1>
           <button type="button" className="pill-btn" onClick={() => setRulesOpen(true)}>
             📖 Rules
           </button>

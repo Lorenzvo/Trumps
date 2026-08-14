@@ -78,7 +78,7 @@ export function Lobby({
   return (
     <div className="game menu-screen">
       <header className="game-header">
-        <h1>🂡 Lobby</h1>
+        <h1>Lobby</h1>
       </header>
 
       <section className="panel room-code-panel">

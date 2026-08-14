@@ -48,16 +48,56 @@
   margin: 0.5rem 0;
 }
 
-.trump-badge {
-  display: inline-flex;
-  align-items: center;
+.trump-status-row {
+  display: flex;
+  justify-content: center;
   gap: 0.6rem;
+  margin: 0.6rem 0;
+  flex-wrap: wrap;
+}
+
+.status-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
   background: var(--surface);
   border: 3px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.4rem 0.8rem;
-  margin: 0.5rem 0;
+  padding: 0.5rem 1rem;
   box-shadow: var(--shadow-sm);
+  min-width: 6.5rem;
+}
+
+.status-label {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+.status-value {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.status-box.status-yes {
+  background: color-mix(in srgb, var(--secondary) 20%, var(--surface));
+  border-color: var(--secondary);
+}
+
+.status-box.status-yes .status-value {
+  color: var(--secondary-dark);
+}
+
+.status-box.status-no {
+  background: color-mix(in srgb, var(--danger) 18%, var(--surface));
+  border-color: var(--danger);
+}
+
+.status-box.status-no .status-value {
+  color: var(--danger-dark);
 }
 
 .trump-suit-icon {
@@ -73,15 +113,14 @@
   color: var(--suit-black);
 }
 
-.trump-badge-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  align-items: flex-start;
+.trick-progress {
+  text-align: center;
+  color: var(--primary);
 }
 
-.trump-badge-text .badge-pixel {
-  margin: 0;
+.needs-row {
+  text-align: center;
+  margin: 0.5rem 0;
 }
 
 /* --- layout basics --- */
@@ -273,6 +312,14 @@ select:hover {
   justify-content: center;
 }
 
+/* Your own hand reserves room for a full 2-row 12-card hand from the start — a hand
+   that's still filling up (early draw phase) or has been played down shouldn't resize
+   the table underneath it. */
+.table-seat.near .hand-cards {
+  min-height: 12.2rem;
+  align-content: flex-start;
+}
+
 .card-chip {
   font-family: var(--font-display);
   font-weight: 800;
@@ -292,12 +339,19 @@ select:hover {
   gap: 0.15rem;
   animation: cardPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   animation-delay: calc(var(--i, 0) * 45ms);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, outline-color 0.15s ease;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 .card-chip:not(:disabled):hover {
   transform: translateY(-8px) scale(1.05);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), 0 0 0 4px color-mix(in srgb, var(--primary) 25%, transparent);
+  outline-color: var(--primary);
+}
+
+.card-chip:not(:disabled):active {
+  transform: translateY(-4px) scale(1.02);
 }
 
 .card-rank {
@@ -391,10 +445,25 @@ select:hover {
 .table-seat {
   display: flex;
   justify-content: center;
+  min-height: 6.2rem;
+  align-items: center;
 }
 
 .table-seat.away {
   opacity: 0.9;
+}
+
+/* Draw and Trick phases share this fixed size — switching between "it's your turn" /
+   "waiting" / mid-decision states never resizes the panel, and the two phases match
+   each other so the page doesn't jump when one follows the other. */
+.table.table-fixed {
+  min-height: 34rem;
+}
+
+/* Smaller, but still internally stable — used by phases with less on-screen (trump
+   naming). Bidding/kitty are allowed to differ in size from draw/trick, per design. */
+.table.table-compact {
+  min-height: 20rem;
 }
 
 .away-row {
@@ -424,6 +493,26 @@ select:hover {
   align-items: center;
   gap: 0.5rem;
   text-align: center;
+}
+
+/* Reserves enough room for the tallest variant of the phase-specific action content
+   (a full decision UI, not just a one-line "waiting" message), so toggling between
+   "your turn" and "waiting" never changes the panel's height. */
+.table-center-action {
+  min-height: 32rem;
+  justify-content: center;
+}
+
+.table-center-bidding {
+  min-height: 4.5rem;
+  justify-content: center;
+  width: 100%;
+}
+
+.table-center-trump {
+  min-height: 4rem;
+  justify-content: center;
+  width: 100%;
 }
 
 .hand {
@@ -538,6 +627,12 @@ select:hover {
   padding: 2rem 1.75rem 1.5rem;
   max-width: 26rem;
   width: 100%;
+  /* Fixed height regardless of step content length — the shortest step and the
+     longest step (Bidding) both fit within this, so the modal never resizes as you
+     click through. */
+  height: 24rem;
+  display: flex;
+  flex-direction: column;
   text-align: center;
   animation: modalPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
@@ -557,6 +652,9 @@ select:hover {
 }
 
 .modal-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
   margin: 0.75rem 0 1rem;
   line-height: 1.55;
 }
@@ -566,6 +664,7 @@ select:hover {
   justify-content: center;
   gap: 0.4rem;
   margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .dot {
@@ -582,4 +681,5 @@ select:hover {
 
 .modal-actions {
   justify-content: center;
+  flex-shrink: 0;
 }

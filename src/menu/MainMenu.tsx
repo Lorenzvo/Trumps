@@ -71,7 +71,7 @@ export function MainMenu({
     return (
       <div className="game menu-screen">
         <header className="game-header">
-          <h1>🂡 Trumps</h1>
+          <h1>Trumps</h1>
         </header>
 
         {error && <p className="error">{error}</p>}
@@ -104,7 +104,7 @@ export function MainMenu({
   return (
     <div className="game menu-screen">
       <header className="game-header">
-        <h1>🂡 Trumps</h1>
+        <h1>Trumps</h1>
         <p className="badge-pixel">A BIDDING TRICK-TAKING CARD GAME</p>
       </header>
 

@@ -6,9 +6,9 @@
 // simply don't render when it's not your turn, no matter which seat you're in.
 
 import { useEffect, useState } from 'react'
-import { cardId, canOfferEarlyEnd, computeTarget, isPass, legalCardsToPlay, SUITS } from '../engine'
+import { cardId, canOfferEarlyEnd, computeTarget, isPass, legalCardsToPlay, rankStrength, SUITS, TOTAL_TRICKS } from '../engine'
 import type { Bid, Card, Mode, PlayerId, Suit } from '../engine'
-import { otherOf, type TwoPlayerGameState } from './twoPlayerReducer'
+import { otherOf, PLAYERS, type TwoPlayerGameState } from './twoPlayerReducer'
 import './TwoPlayerGame.css'
 
 export const SUIT_SYMBOL: Record<Suit, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }
@@ -21,17 +21,44 @@ export function isRedSuit(suit: Suit): boolean {
   return suit === 'hearts' || suit === 'diamonds'
 }
 
-/** The trump indicator: a colored suit icon (matching the card art) plus mode and
- *  broken/unbroken status as small pixel badges, rather than one long text string. */
+// Alternates red/black so neighboring suit groups in a sorted hand read distinctly.
+const SUIT_DISPLAY_ORDER: readonly Suit[] = ['hearts', 'spades', 'diamonds', 'clubs']
+
+/** Sorted for display only — suit (alternating color), then best-to-worst rank for the
+ *  round's mode. Doesn't touch stored state/order, just how a revealed hand renders.
+ *  Before a mode is chosen (draw/bidding), defaults to High ordering — Ace is always
+ *  best either way, this just keeps things visually consistent pre-bid. */
+export function sortHandForDisplay(hand: readonly Card[], mode: Mode = 'high'): Card[] {
+  return [...hand].sort((a, b) => {
+    const suitDiff = SUIT_DISPLAY_ORDER.indexOf(a.suit) - SUIT_DISPLAY_ORDER.indexOf(b.suit)
+    if (suitDiff !== 0) return suitDiff
+    return rankStrength(b.rank, mode) - rankStrength(a.rank, mode)
+  })
+}
+
+/** How many more tricks a player needs to lock in their side's win — the defender's
+ *  own bid target, or (TOTAL_TRICKS + 1 - target) for the bid side, which is the
+ *  count that mathematically guarantees the defender can no longer reach theirs. */
+export function tricksNeeded(target: number, current: number): number {
+  return Math.max(0, target - current)
+}
+
+/** The trump indicator: three separate boxes (suit, mode, whether trump can be led)
+ *  instead of one bundled string, so it fills the width instead of hugging a corner. */
 export function TrumpBadge({ suit, mode, broken }: { suit: Suit; mode: Mode; broken: boolean }) {
   return (
-    <div className="trump-badge">
-      <span className={`trump-suit-icon ${isRedSuit(suit) ? 'red' : 'black'}`}>{SUIT_SYMBOL[suit]}</span>
-      <div className="trump-badge-text">
-        <span className="badge-pixel">
-          TYPE: {mode === 'high' ? 'HIGH ↑' : 'LOW ↓'}
-        </span>
-        <span className="badge-pixel">{broken ? 'BROKEN' : 'UNBROKEN'}</span>
+    <div className="trump-status-row">
+      <div className="status-box">
+        <span className="status-label">TRUMP</span>
+        <span className={`trump-suit-icon ${isRedSuit(suit) ? 'red' : 'black'}`}>{SUIT_SYMBOL[suit]}</span>
+      </div>
+      <div className="status-box">
+        <span className="status-label">TYPE</span>
+        <span className="status-value">{mode === 'high' ? 'High ↑' : 'Low ↓'}</span>
+      </div>
+      <div className={`status-box ${broken ? 'status-yes' : 'status-no'}`}>
+        <span className="status-label">CAN LEAD TRUMP</span>
+        <span className="status-value">{broken ? 'Yes' : 'No'}</span>
       </div>
     </div>
   )
@@ -218,12 +245,12 @@ export function DrawPhaseView({
       <h2>Draw phase</h2>
       <p className="hint">You can always see your own hand — the other player's cards stay face-down.</p>
 
-      <div className="table">
+      <div className="table table-fixed">
         <div className="table-seat away">
           <Hand name={state.names[otherPlayer]} hand={handFor(otherPlayer)} revealed={false} />
         </div>
 
-        <div className="table-center">
+        <div className="table-center table-center-action">
           <p className="badge-pixel">PILE · {pileSize} LEFT</p>
           <div className="pile-stack">
             {Array.from({ length: Math.min(pileSize, 4) }).map((_, i) => (
@@ -254,15 +281,15 @@ export function DrawPhaseView({
                 </button>
               </div>
               <p className="hint">
-                <strong>Keep</strong> — it joins your hand, and the next card quietly vanishes.{' '}
-                <strong>Discard</strong> — it's gone, and whatever's next is yours, ready or not.
+                <strong>Keep:</strong> keep the current card and discard the next one without seeing it.{' '}
+                <strong>Discard:</strong> discard the current card and keep the next one without seeing it.
               </p>
             </div>
           )}
         </div>
 
         <div className="table-seat near">
-          <Hand name={state.names[viewerPlayerId]} hand={handFor(viewerPlayerId)} revealed />
+          <Hand name={state.names[viewerPlayerId]} hand={sortHandForDisplay(handFor(viewerPlayerId))} revealed />
         </div>
       </div>
     </section>
@@ -315,29 +342,31 @@ export function BiddingView({
             {state.names.p2.toUpperCase()} · {bidsLeft('p2')} BID{bidsLeft('p2') === 1 ? '' : 'S'} LEFT
           </p>
 
-          {canAct ? (
-            <div className="button-row">
-              <select value={number} onChange={(e) => setNumber(Number(e.target.value))}>
-                {[2, 3, 4, 5, 6, 7].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-              <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
-                <option value="high">High</option>
-                <option value="low">Low</option>
-              </select>
-              <button type="button" className="pill-btn primary" onClick={() => onBid(number, mode)}>
-                Bid
-              </button>
-              <button type="button" className="pill-btn" onClick={onPass} disabled={isOpeningBid}>
-                Pass
-              </button>
-            </div>
-          ) : (
-            <p className="hint">Waiting for {state.names[current]} to bid…</p>
-          )}
+          <div className="table-center-action table-center-bidding">
+            {canAct ? (
+              <div className="button-row">
+                <select value={number} onChange={(e) => setNumber(Number(e.target.value))}>
+                  {[2, 3, 4, 5, 6, 7].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
+                  <option value="high">High</option>
+                  <option value="low">Low</option>
+                </select>
+                <button type="button" className="pill-btn primary" onClick={() => onBid(number, mode)}>
+                  Bid
+                </button>
+                <button type="button" className="pill-btn" onClick={onPass} disabled={isOpeningBid}>
+                  Pass
+                </button>
+              </div>
+            ) : (
+              <p className="hint">Waiting for {state.names[current]} to bid…</p>
+            )}
+          </div>
 
           <div className="bid-history-wrap">
             <h3>Bid history</h3>
@@ -352,7 +381,7 @@ export function BiddingView({
         </div>
 
         <div className="table-seat near">
-          <Hand name={state.names[viewerPlayerId]} hand={state.hands[viewerPlayerId]} revealed />
+          <Hand name={state.names[viewerPlayerId]} hand={sortHandForDisplay(state.hands[viewerPlayerId])} revealed />
         </div>
       </div>
     </section>
@@ -370,6 +399,7 @@ export function TrumpView({
 }) {
   const winner = (state.winningBid as Bid).playerId
   const canAct = viewerPlayerId === winner
+  const other = otherOf(viewerPlayerId)
   return (
     <section className="panel">
       <h2>Name trump</h2>
@@ -377,26 +407,42 @@ export function TrumpView({
         {state.names[winner]} won the bid: <strong>{state.winningBid?.number} {state.winningBid?.mode}</strong>
       </p>
       {state.exceptionKittyFirst ? (
-        <p className="hint">Bonus: won on their very first call, so trump is named after seeing the kitty (not blind).</p>
+        <p className="hint">
+          Note: {state.names[winner]} won the bid on their first call, so they get to call the trump suit after
+          exchanging with the kitty.
+        </p>
       ) : (
         <p className="hint">Trump must be named blind, before seeing the kitty.</p>
       )}
-      {canAct ? (
-        <div className="button-row">
-          {SUITS.map((suit) => (
-            <button
-              type="button"
-              key={suit}
-              className={['pill-btn', 'suit-btn', isRedSuit(suit) ? 'red' : 'black'].join(' ')}
-              onClick={() => onNameTrump(suit)}
-            >
-              {SUIT_SYMBOL[suit]} {capitalize(suit)}
-            </button>
-          ))}
+
+      <div className="table table-compact">
+        <div className="table-seat away">
+          <Hand name={state.names[other]} hand={state.hands[other]} revealed={false} />
         </div>
-      ) : (
-        <p className="hint">Waiting for {state.names[winner]} to name trump…</p>
-      )}
+
+        <div className="table-center table-center-action table-center-trump">
+          {canAct ? (
+            <div className="button-row">
+              {SUITS.map((suit) => (
+                <button
+                  type="button"
+                  key={suit}
+                  className={['pill-btn', 'suit-btn', isRedSuit(suit) ? 'red' : 'black'].join(' ')}
+                  onClick={() => onNameTrump(suit)}
+                >
+                  {SUIT_SYMBOL[suit]} {capitalize(suit)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="hint">Waiting for {state.names[winner]} to name trump…</p>
+          )}
+        </div>
+
+        <div className="table-seat near">
+          <Hand name={state.names[viewerPlayerId]} hand={sortHandForDisplay(state.hands[viewerPlayerId])} revealed />
+        </div>
+      </div>
     </section>
   )
 }
@@ -426,7 +472,7 @@ export function KittyView({
     )
   }
 
-  const hand = state.hands[winner]
+  const hand = sortHandForDisplay(state.hands[winner], (state.winningBid as Bid).mode)
   const toggle = (set: Set<string>, setSet: (s: Set<string>) => void, id: string) => {
     const next = new Set(set)
     if (next.has(id)) next.delete(id)
@@ -506,25 +552,32 @@ export function TrickView({
   const bidWinner = (state.winningBid as Bid).playerId
   const defender = otherOf(bidWinner)
   const target = computeTarget((state.winningBid as Bid).number)
+  const bidSideTarget = TOTAL_TRICKS + 1 - target
   const canAct = !trickComplete && toAct === viewerPlayerId
   const otherPlayer = otherOf(viewerPlayerId)
 
+  const lastWinner = state.trickHistory[state.trickHistory.length - 1]?.winner
+  const canContinue = trickComplete && viewerPlayerId === lastWinner
+
   return (
     <section className="panel">
-      <h2>Trick play</h2>
+      <h2 className="trick-progress">
+        Trick {state.tricksPlayed} of {TOTAL_TRICKS}
+      </h2>
       <TrumpBadge suit={trumpSuit} mode={(state.winningBid as Bid).mode} broken={state.trumpBroken} />
-      <p>
-        Tricks played: {state.tricksPlayed}/12 &nbsp;|&nbsp; {state.names[bidWinner]} (bid side):{' '}
-        <strong>{state.trickCounts[bidWinner]}</strong> &nbsp;|&nbsp; {state.names[defender]} (needs {target}):{' '}
-        <strong>{state.trickCounts[defender]}</strong>
+      <p className="needs-row">
+        {state.names[PLAYERS[0]]} needs{' '}
+        <strong>{tricksNeeded(PLAYERS[0] === defender ? target : bidSideTarget, state.trickCounts[PLAYERS[0]])}</strong>
+        &nbsp;|&nbsp; {state.names[PLAYERS[1]]} needs{' '}
+        <strong>{tricksNeeded(PLAYERS[1] === defender ? target : bidSideTarget, state.trickCounts[PLAYERS[1]])}</strong>
       </p>
 
-      <div className="table">
+      <div className="table table-fixed">
         <div className="table-seat away">
           <Hand name={state.names[otherPlayer]} hand={state.hands[otherPlayer]} revealed={false} />
         </div>
 
-        <div className="table-center">
+        <div className="table-center table-center-action">
           <div className="trick-area">
             {state.trick.plays.length === 0 && <p>{state.names[leader]} leads.</p>}
             {state.trick.plays.map((p) => (
@@ -537,32 +590,39 @@ export function TrickView({
 
           {trickComplete ? (
             <div className="button-row trick-result">
-              <p className="turn-banner">
-                {state.names[state.trickHistory[state.trickHistory.length - 1].winner]} wins the trick!
-              </p>
-              {canOfferEarlyEnd(state.outcome) ? (
-                <>
-                  <p className="hint">
-                    {state.names[defender]} can't reach {target} tricks anymore — {state.names[bidWinner]}'s side has
-                    it locked in. Call it now, or play out all 12 for the full tally.
-                  </p>
-                  <button type="button" className="pill-btn primary" onClick={onEndEarly}>
-                    End round now
+              <p className="turn-banner">{state.names[lastWinner as PlayerId]} wins the trick!</p>
+              {canContinue ? (
+                canOfferEarlyEnd(state.outcome) ? (
+                  <>
+                    <p className="hint">
+                      {state.names[defender]} can't reach {target} tricks anymore — {state.names[bidWinner]}'s side
+                      has it locked in. Call it now, or play out all 12 for the full tally.
+                    </p>
+                    <button type="button" className="pill-btn primary" onClick={onEndEarly}>
+                      End round now
+                    </button>
+                    <button type="button" className="pill-btn" onClick={onContinue}>
+                      Keep playing
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="pill-btn primary" onClick={onContinue}>
+                    Next trick
                   </button>
-                  <button type="button" className="pill-btn" onClick={onContinue}>
-                    Keep playing
-                  </button>
-                </>
+                )
               ) : (
-                <button type="button" className="pill-btn primary" onClick={onContinue}>
-                  Next trick
-                </button>
+                <p className="hint">Waiting for {state.names[lastWinner as PlayerId]} to continue…</p>
               )}
             </div>
           ) : (
             <p className="turn-banner-inline">
-              {canAct ? 'Your turn to play' : `${state.names[toAct as PlayerId]} to play`}
-              {state.trick.ledSuit && ` (led suit: ${SUIT_SYMBOL[state.trick.ledSuit]} ${capitalize(state.trick.ledSuit)})`}
+              {canAct ? "Your turn" : `${state.names[toAct as PlayerId]}'s turn`}
+              {state.trick.ledSuit && (
+                <>
+                  {' '}
+                  (Suit: {SUIT_SYMBOL[state.trick.ledSuit]} {capitalize(state.trick.ledSuit)})
+                </>
+              )}
             </p>
           )}
         </div>
@@ -570,7 +630,7 @@ export function TrickView({
         <div className="table-seat near">
           <Hand
             name={state.names[viewerPlayerId]}
-            hand={state.hands[viewerPlayerId]}
+            hand={sortHandForDisplay(state.hands[viewerPlayerId], (state.winningBid as Bid).mode)}
             revealed
             onPlay={canAct ? onPlayCard : undefined}
             legal={canAct ? legalCardsToPlay(state.hands[viewerPlayerId], state.trick, trumpSuit, state.trumpBroken) : undefined}
