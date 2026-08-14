@@ -135,7 +135,14 @@ function App() {
   }
 
   if (roomCode) {
-    return <NetworkedTwoPlayerGame roomCode={roomCode} clientId={clientId} onLeave={handleLeave} />
+    return (
+      <NetworkedTwoPlayerGame
+        roomCode={roomCode}
+        clientId={clientId}
+        onLeave={handleLeave}
+        onReturnToLobby={() => setScreen('lobby')}
+      />
+    )
   }
 
   return (

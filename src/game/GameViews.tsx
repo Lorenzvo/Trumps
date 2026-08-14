@@ -762,7 +762,18 @@ export function PlayedCardsPanel({ state }: { state: TwoPlayerGameState }) {
   )
 }
 
-export function RoundEndView({ state, onNextRound }: { state: TwoPlayerGameState; onNextRound: () => void }) {
+export function RoundEndView({
+  state,
+  onNextRound,
+  onReturnToLobby,
+}: {
+  state: TwoPlayerGameState
+  onNextRound: () => void
+  /** Networked-only: sends everyone back to the lobby instead of dealing immediately,
+   *  so seats/spectators can be reshuffled first. Omitted in local hot-seat, where
+   *  there's no lobby/spectator concept to return to. */
+  onReturnToLobby?: () => void
+}) {
   const bidWinner = (state.winningBid as Bid).playerId
   const defender = otherOf(bidWinner)
   const target = computeTarget((state.winningBid as Bid).number)
@@ -807,9 +818,16 @@ export function RoundEndView({ state, onNextRound }: { state: TwoPlayerGameState
         ))}
       </div>
 
-      <button type="button" className="pill-btn primary" onClick={onNextRound}>
-        Next round
-      </button>
+      <div className="button-row">
+        <button type="button" className="pill-btn primary" onClick={onNextRound}>
+          Next round
+        </button>
+        {onReturnToLobby && (
+          <button type="button" className="pill-btn" onClick={onReturnToLobby}>
+            🔁 Change seats / spectators
+          </button>
+        )}
+      </div>
     </section>
   )
 }

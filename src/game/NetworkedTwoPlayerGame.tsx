@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import type { Card, Mode, PlayerId, Suit } from '../engine'
 import { applyGameAction } from '../firebase/gameSync'
 import { fromFirestoreGame } from '../firebase/gameSerialize'
-import { endMatch, restartMatch, subscribeToRoom, type RoomDoc } from '../firebase/rooms'
+import { endMatch, restartMatch, returnToLobby, subscribeToRoom, type RoomDoc } from '../firebase/rooms'
 import {
   BiddingView,
   ConfirmModal,
@@ -39,10 +39,16 @@ export function NetworkedTwoPlayerGame({
   roomCode,
   clientId,
   onLeave,
+  onReturnToLobby,
 }: {
   roomCode: string
   clientId: string
   onLeave: () => void
+  /** Firestore's room.status flipping back to 'lobby' (via RoundEndView's "change
+   *  seats" button) doesn't by itself move App.tsx's local `screen` state off
+   *  'game' — this is how that gets signaled back up, mirroring Lobby's own
+   *  onStart callback for the opposite transition. */
+  onReturnToLobby: () => void
 }) {
   const [room, setRoom] = useState<(RoomDoc & { code: string }) | null | undefined>(undefined)
   const [rulesOpen, setRulesOpen] = useState(false)
@@ -54,6 +60,10 @@ export function NetworkedTwoPlayerGame({
   const [trackPlayed, setTrackPlayed] = useState(false)
 
   useEffect(() => subscribeToRoom(roomCode, setRoom), [roomCode])
+
+  useEffect(() => {
+    if (room?.status === 'lobby') onReturnToLobby()
+  }, [room?.status, onReturnToLobby])
 
   if (room === undefined) {
     return (
@@ -210,7 +220,13 @@ export function NetworkedTwoPlayerGame({
           onEndEarly={() => act(applyEndRoundEarly)}
         />
       )}
-      {game.phase === 'round-end' && <RoundEndView state={game} onNextRound={() => act(applyNextRound)} />}
+      {game.phase === 'round-end' && (
+        <RoundEndView
+          state={game}
+          onNextRound={() => act(applyNextRound)}
+          onReturnToLobby={() => returnToLobby(roomCode).catch((err) => setError(err instanceof Error ? err.message : String(err)))}
+        />
+      )}
 
       <div className="button-row match-controls">
         <button type="button" className="pill-btn" onClick={onLeave}>
