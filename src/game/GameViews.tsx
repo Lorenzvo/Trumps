@@ -705,6 +705,41 @@ export function TrickView({
   )
 }
 
+// --- played-cards tracker, opt-in --------------------------------------------------
+
+/** Every card played so far this round (completed tricks + the trick in progress),
+ *  grouped by suit and sorted best-to-worst within each suit — an opt-in memory aid
+ *  for tracking what's already out. Resets every round along with trickHistory, same
+ *  as the rest of trick-play state; nothing here persists across rounds. */
+export function PlayedCardsPanel({ state }: { state: TwoPlayerGameState }) {
+  const mode = state.winningBid?.mode ?? 'high'
+  const played = [...state.trickHistory.flatMap((t) => t.plays.map((p) => p.card)), ...state.trick.plays.map((p) => p.card)]
+  const sorted = sortHandForDisplay(played, mode)
+
+  return (
+    <section className="panel played-cards-panel">
+      <h3>Played cards this round</h3>
+      {SUIT_DISPLAY_ORDER.map((suit) => {
+        const cards = sorted.filter((c) => c.suit === suit)
+        return (
+          <div key={suit} className="discard-row">
+            <p className="hand-label">
+              <span className={isRedSuit(suit) ? 'red' : 'black'}>{SUIT_SYMBOL[suit]}</span> {capitalize(suit)}
+            </p>
+            <div className="hand-cards">
+              {cards.length === 0 ? (
+                <p className="hint">None yet</p>
+              ) : (
+                cards.map((card, i) => <CardChip key={cardId(card) + i} card={card} index={i} />)
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
 export function RoundEndView({ state, onNextRound }: { state: TwoPlayerGameState; onNextRound: () => void }) {
   const bidWinner = (state.winningBid as Bid).playerId
   const defender = otherOf(bidWinner)

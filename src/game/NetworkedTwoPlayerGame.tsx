@@ -15,6 +15,7 @@ import {
   ConfirmModal,
   DrawPhaseView,
   KittyView,
+  PlayedCardsPanel,
   RoundEndView,
   RulesModal,
   TrickView,
@@ -47,6 +48,9 @@ export function NetworkedTwoPlayerGame({
   const [rulesOpen, setRulesOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<'forfeit' | 'restart' | null>(null)
+  // Off by default, personal display preference (not synced — each player picks for
+  // themselves), so it lives here rather than in the shared Firestore game state.
+  const [trackPlayed, setTrackPlayed] = useState(false)
 
   useEffect(() => subscribeToRoom(roomCode, setRoom), [roomCode])
 
@@ -149,6 +153,9 @@ export function NetworkedTwoPlayerGame({
           <button type="button" className="pill-btn" onClick={() => setRulesOpen(true)}>
             📖 Rules
           </button>
+          <button type="button" className={`pill-btn ${trackPlayed ? 'primary' : ''}`} onClick={() => setTrackPlayed((v) => !v)}>
+            👁 {trackPlayed ? 'Hide' : 'Track'} played cards
+          </button>
         </div>
         <p className="badge-pixel">
           ROOM {room.code} · ROUND {game.round} · YOU ARE {game.names[myPlayerId].toUpperCase()}
@@ -158,6 +165,8 @@ export function NetworkedTwoPlayerGame({
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
 
       {error && <p className="error">{error}</p>}
+
+      {trackPlayed && <PlayedCardsPanel state={game} />}
 
       {game.phase === 'draw' && (
         <DrawPhaseView

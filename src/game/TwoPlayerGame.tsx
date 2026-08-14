@@ -11,6 +11,7 @@ import {
   BiddingView,
   DrawPhaseView,
   KittyView,
+  PlayedCardsPanel,
   RoundEndView,
   RulesModal,
   TrickView,
@@ -63,6 +64,9 @@ export function TwoPlayerGame() {
   const [game, setGame] = useState<TwoPlayerGameState>(() => startTwoPlayerRound(1, PLAYERS[0], DEFAULT_NAMES))
   const [rulesOpen, setRulesOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Off by default (spoils your own tracking if you didn't ask for it) — a personal
+  // display preference, not game state, so it lives here rather than in TwoPlayerGameState.
+  const [trackPlayed, setTrackPlayed] = useState(false)
 
   function safeUpdate(compute: (s: TwoPlayerGameState) => TwoPlayerGameState) {
     try {
@@ -83,6 +87,9 @@ export function TwoPlayerGame() {
           <button type="button" className="pill-btn" onClick={() => setRulesOpen(true)}>
             📖 Rules
           </button>
+          <button type="button" className={`pill-btn ${trackPlayed ? 'primary' : ''}`} onClick={() => setTrackPlayed((v) => !v)}>
+            👁 {trackPlayed ? 'Hide' : 'Track'} played cards
+          </button>
         </div>
         <p className="badge-pixel">
           ROUND {game.round} · OPENER {game.names[game.opener].toUpperCase()}
@@ -92,6 +99,8 @@ export function TwoPlayerGame() {
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
 
       {error && <p className="error">{error}</p>}
+
+      {trackPlayed && <PlayedCardsPanel state={game} />}
 
       {game.phase === 'draw' && (
         <DrawPhaseView
