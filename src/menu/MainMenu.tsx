@@ -175,6 +175,8 @@ export function MainMenu({
         </button>
         {' '}(local, no room needed)
       </p>
+
+      <p className="credit">Designed by Lorenzo Mendez</p>
     </div>
   )
 }

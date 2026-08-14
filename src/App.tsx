@@ -92,7 +92,7 @@ function App() {
 
   if (screen === 'practice') {
     return (
-      <div>
+      <div className="practice-shell">
         <div className="practice-bar">
           <button type="button" className="pill-btn" onClick={() => setScreen('menu')}>
             ← Back to menu
@@ -106,7 +106,7 @@ function App() {
 
   if (screen === 'practice4p') {
     return (
-      <div>
+      <div className="practice-shell">
         <div className="practice-bar">
           <button type="button" className="pill-btn" onClick={() => setScreen('menu')}>
             ← Back to menu

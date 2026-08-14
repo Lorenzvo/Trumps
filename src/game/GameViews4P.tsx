@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { canOfferEarlyEnd, computeTarget, isPass, legalCardsToPlay, SUITS, TOTAL_TRICKS } from '../engine'
 import type { Card, Mode, PlayerId, Suit } from '../engine'
-import { CardBack, CardChip, Hand, SUIT_SYMBOL, TrumpBadge, capitalize, isRedSuit, sortHandForDisplay, tricksNeeded } from './GameViews'
+import { CardBack, CardChip, Hand, NeedsRow, SUIT_SYMBOL, TrumpBadge, capitalize, isRedSuit, sortHandForDisplay, tricksNeeded } from './GameViews'
 import {
   nextToActInTrick,
   opposingTeam,
@@ -330,11 +330,12 @@ export function TrickView4P({
         Trick {state.tricksPlayed} of {TOTAL_TRICKS}
       </h2>
       <TrumpBadge suit={trumpSuit} mode={state.winningBid!.mode} broken={state.trumpBroken} />
-      <p className="needs-row">
-        {teamA} needs <strong>{tricksNeeded(teamA === defendTeam ? target : bidSideTarget, teamTricks(state, teamA))}</strong>
-        &nbsp;|&nbsp; {teamB} needs{' '}
-        <strong>{tricksNeeded(teamB === defendTeam ? target : bidSideTarget, teamTricks(state, teamB))}</strong>
-      </p>
+      <NeedsRow
+        entries={[teamA, teamB].map((team) => ({
+          name: team,
+          need: tricksNeeded(team === defendTeam ? target : bidSideTarget, teamTricks(state, team)),
+        }))}
+      />
 
       <div className="table table-fixed">
         <OpponentRow state={state} viewerPlayerId={viewerPlayerId} />

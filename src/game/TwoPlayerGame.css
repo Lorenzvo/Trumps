@@ -1,7 +1,19 @@
 .game {
+  /* #root is display:flex (for vertical centering) which makes .game a flex item —
+     flex items default to flex-grow:0, so without an explicit width they shrink-wrap
+     to content instead of actually using this max-width. That silently narrowed
+     everything downstream (table, hands, the draw-phase two-column layout). */
+  width: 100%;
   max-width: 52rem;
   margin: 0 auto;
-  padding: 1.5rem 1.5rem 3rem;
+  padding: 1rem 1.5rem 1.5rem;
+}
+
+/* Practice screens wrap .game in an extra plain <div> (for the back-to-menu bar) —
+   that wrapper is what #root's flex row actually sizes, so it needs the same
+   width:100% fix as .game itself, or the shrink-wrap problem just moves up one level. */
+.practice-shell {
+  width: 100%;
 }
 
 .practice-bar {
@@ -17,7 +29,7 @@
 
 .game-header {
   text-align: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .title-row {
@@ -29,7 +41,7 @@
 }
 
 .game-header h1 {
-  font-size: 2.4rem;
+  font-size: 2rem;
   color: var(--primary);
   text-shadow: var(--shadow-sm);
   margin: 0;
@@ -119,8 +131,22 @@
 }
 
 .needs-row {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
   margin: 0.5rem 0;
+}
+
+.needs-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.needs-sep {
+  opacity: 0.45;
 }
 
 /* --- layout basics --- */
@@ -144,6 +170,11 @@
   padding: 1.25rem 1.5rem 1.5rem;
   margin: 1rem 0;
   animation: panelIn 320ms ease both;
+  text-align: center;
+}
+
+.panel > h2 {
+  text-align: center;
 }
 
 .error {
@@ -159,6 +190,8 @@
   font-size: 0.88rem;
   color: var(--ink-soft);
   max-width: 34rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .turn-banner {
@@ -177,19 +210,35 @@
 .button-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.6rem;
   flex-wrap: wrap;
   margin: 0.6rem 0;
+  width: 100%;
 }
 
 .bid-history {
-  padding-left: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
   margin: 0.25rem 0;
+}
+
+.bid-history li {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .bid-history-wrap {
   width: 100%;
-  max-width: 20rem;
+  max-width: 26rem;
 }
 
 .table-center h3 {
@@ -200,8 +249,6 @@
 
 .table-center .bid-history {
   color: #fff8ec;
-  font-size: 0.9rem;
-  text-align: left;
 }
 
 /* --- buttons --- */
@@ -291,11 +338,11 @@ select:hover {
 
 @keyframes cardPop {
   0% {
-    transform: scale(0.4) translateY(-26px) rotate(-6deg);
+    transform: scale(0.5) translateY(-20px) rotate(-4deg);
     opacity: 0;
   }
-  60% {
-    transform: scale(1.08) translateY(3px) rotate(2deg);
+  65% {
+    transform: scale(1.05) translateY(2px) rotate(1deg);
     opacity: 1;
   }
   100% {
@@ -307,24 +354,34 @@ select:hover {
 .hand-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.4rem;
   margin: 0.5rem 0 1rem;
   justify-content: center;
+  /* Reserves one card-row's worth of height even at 0 cards, so an empty vs.
+     non-empty hand (e.g. the hidden away hand right after a fresh deal) doesn't
+     change this element's height — an empty flex container collapses to ~0 otherwise. */
+  min-height: 4.8rem;
 }
 
-/* Your own hand reserves room for a full 2-row 12-card hand from the start — a hand
-   that's still filling up (early draw phase) or has been played down shouldn't resize
-   the table underneath it. */
+/* Capped to exactly 6 cards per row (6 * 3.4rem card + 5 * 0.4rem gap), on *any*
+   viewport width — without this, a wide desktop window fits all 12 cards on one very
+   long row instead of wrapping, which was worse than the resizing it was meant to fix.
+   Only a single row is reserved (inherited from .hand-cards above) rather than a full
+   2-row minimum: a hand growing from 1 row to 2 partway through the draw phase is one
+   small, gradual, expected change — not worth the height cost of reserving 2 rows'
+   worth of empty space for the entire rest of the round. */
 .table-seat.near .hand-cards {
-  min-height: 12.2rem;
+  max-width: 22.4rem;
+  margin-left: auto;
+  margin-right: auto;
   align-content: flex-start;
 }
 
 .card-chip {
   font-family: var(--font-display);
   font-weight: 800;
-  width: 4rem;
-  height: 5.6rem;
+  width: 3.4rem;
+  height: 4.8rem;
   border-radius: 12px;
   border: 2px solid var(--border);
   /* Fixed cream face in both themes — real cards don't have a dark mode, and this is
@@ -337,8 +394,8 @@ select:hover {
   align-items: center;
   justify-content: center;
   gap: 0.15rem;
-  animation: cardPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  animation-delay: calc(var(--i, 0) * 45ms);
+  animation: cardPop 300ms cubic-bezier(0.22, 1.2, 0.44, 1) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
   transition: transform 0.15s ease, box-shadow 0.15s ease, outline-color 0.15s ease;
   outline: 2px solid transparent;
   outline-offset: 2px;
@@ -355,12 +412,12 @@ select:hover {
 }
 
 .card-rank {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   line-height: 1;
 }
 
 .card-suit {
-  font-size: 1.65rem;
+  font-size: 1.4rem;
   line-height: 1;
 }
 
@@ -417,8 +474,8 @@ select:hover {
 
 .pile-stack {
   position: relative;
-  width: 4rem;
-  height: 5.6rem;
+  width: 3.4rem;
+  height: 4.8rem;
   margin: 0.4rem 0;
 }
 
@@ -457,7 +514,7 @@ select:hover {
    "waiting" / mid-decision states never resizes the panel, and the two phases match
    each other so the page doesn't jump when one follows the other. */
 .table.table-fixed {
-  min-height: 34rem;
+  min-height: 26rem;
 }
 
 /* Smaller, but still internally stable — used by phases with less on-screen (trump
@@ -476,6 +533,7 @@ select:hover {
 
 .mini-hand .hand-cards {
   margin: 0.25rem 0;
+  min-height: 3.6rem;
 }
 
 .mini-hand .card-back {
@@ -499,8 +557,36 @@ select:hover {
    (a full decision UI, not just a one-line "waiting" message), so toggling between
    "your turn" and "waiting" never changes the panel's height. */
 .table-center-action {
-  min-height: 32rem;
+  min-height: 19.5rem;
   justify-content: center;
+}
+
+/* Draw phase: pile info and the keep/discard decision sit side by side on desktop
+   (more horizontal, less tall) and stack on narrow/mobile screens. */
+.draw-center {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+}
+
+.draw-center-pile,
+.draw-center-decision {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 14rem;
+  min-width: 12rem;
+}
+
+@media (max-width: 600px) {
+  .draw-center {
+    flex-direction: column;
+  }
 }
 
 .table-center-bidding {

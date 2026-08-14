@@ -100,7 +100,7 @@ body {
   justify-content: center;
   align-items: safe center;
   min-height: 100vh;
-  padding: clamp(1.5rem, 5vh, 4rem) 0;
+  padding: clamp(1rem, 3vh, 2.5rem) 0;
 }
 
 h1,

@@ -43,6 +43,26 @@ export function tricksNeeded(target: number, current: number): number {
   return Math.max(0, target - current)
 }
 
+/** Renders as CSS-gapped entries rather than hand-joining strings with &nbsp;/text —
+ *  manual whitespace between a JSX text node and the next expression is easy to get
+ *  subtly uneven (trailing spaces around &nbsp; stack with JSX's own line-join space). */
+export function NeedsRow({ entries }: { entries: Array<{ name: string; need: number }> }) {
+  return (
+    <div className="needs-row">
+      {entries.map((e, i) => (
+        <span className="needs-entry" key={e.name}>
+          {i > 0 && (
+            <span className="needs-sep" aria-hidden="true">
+              |
+            </span>
+          )}
+          {e.name} needs <strong>{e.need}</strong>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 /** The trump indicator: three separate boxes (suit, mode, whether trump can be led)
  *  instead of one bundled string, so it fills the width instead of hugging a corner. */
 export function TrumpBadge({ suit, mode, broken }: { suit: Suit; mode: Mode; broken: boolean }) {
@@ -243,7 +263,6 @@ export function DrawPhaseView({
   return (
     <section className="panel">
       <h2>Draw phase</h2>
-      <p className="hint">You can always see your own hand — the other player's cards stay face-down.</p>
 
       <div className="table table-fixed">
         <div className="table-seat away">
@@ -251,41 +270,48 @@ export function DrawPhaseView({
         </div>
 
         <div className="table-center table-center-action">
-          <p className="badge-pixel">PILE · {pileSize} LEFT</p>
-          <div className="pile-stack">
-            {Array.from({ length: Math.min(pileSize, 4) }).map((_, i) => (
-              <div key={i} className="card-chip card-back pile-card" style={{ '--i': i } as React.CSSProperties} />
-            ))}
-          </div>
-
-          <p className="turn-banner">{state.names[activePlayer]}'s turn</p>
-
-          {!canAct && <p className="hint">Waiting for {state.names[activePlayer]}…</p>}
-
-          {canAct && !state.draw.pendingCard && (
-            <button type="button" className="pill-btn primary" onClick={onDraw}>
-              Draw a card
-            </button>
-          )}
-
-          {canAct && state.draw.pendingCard && (
-            <div className="draw-decision">
-              <p>You drew:</p>
-              <CardChip card={state.draw.pendingCard} />
-              <div className="button-row">
-                <button type="button" className="pill-btn secondary" onClick={() => onResolve('keep')}>
-                  Keep
-                </button>
-                <button type="button" className="pill-btn danger" onClick={() => onResolve('discard')}>
-                  Discard
-                </button>
+          <div className="draw-center">
+            <div className="draw-center-pile">
+              <p className="badge-pixel">PILE · {pileSize} LEFT</p>
+              <div className="pile-stack">
+                {Array.from({ length: Math.min(pileSize, 4) }).map((_, i) => (
+                  <div key={i} className="card-chip card-back pile-card" style={{ '--i': i } as React.CSSProperties} />
+                ))}
               </div>
-              <p className="hint">
-                <strong>Keep:</strong> keep the current card and discard the next one without seeing it.{' '}
-                <strong>Discard:</strong> discard the current card and keep the next one without seeing it.
-              </p>
+              <p className="turn-banner">{state.names[activePlayer]}'s turn</p>
             </div>
-          )}
+
+            <div className="draw-center-decision">
+              {!canAct && <p className="hint">Waiting for {state.names[activePlayer]}…</p>}
+
+              {canAct && !state.draw.pendingCard && (
+                <button type="button" className="pill-btn primary" onClick={onDraw}>
+                  Draw a card
+                </button>
+              )}
+
+              {canAct && state.draw.pendingCard && (
+                <div className="draw-decision">
+                  <p>You drew:</p>
+                  <CardChip card={state.draw.pendingCard} />
+                  <div className="button-row">
+                    <button type="button" className="pill-btn secondary" onClick={() => onResolve('keep')}>
+                      Keep
+                    </button>
+                    <button type="button" className="pill-btn danger" onClick={() => onResolve('discard')}>
+                      Discard
+                    </button>
+                  </div>
+                  <p className="hint">
+                    <strong>Keep:</strong> keep the current card and discard the next one without seeing it.
+                  </p>
+                  <p className="hint">
+                    <strong>Discard:</strong> discard the current card and keep the next one without seeing it.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="table-seat near">
@@ -565,12 +591,12 @@ export function TrickView({
         Trick {state.tricksPlayed} of {TOTAL_TRICKS}
       </h2>
       <TrumpBadge suit={trumpSuit} mode={(state.winningBid as Bid).mode} broken={state.trumpBroken} />
-      <p className="needs-row">
-        {state.names[PLAYERS[0]]} needs{' '}
-        <strong>{tricksNeeded(PLAYERS[0] === defender ? target : bidSideTarget, state.trickCounts[PLAYERS[0]])}</strong>
-        &nbsp;|&nbsp; {state.names[PLAYERS[1]]} needs{' '}
-        <strong>{tricksNeeded(PLAYERS[1] === defender ? target : bidSideTarget, state.trickCounts[PLAYERS[1]])}</strong>
-      </p>
+      <NeedsRow
+        entries={PLAYERS.map((p) => ({
+          name: state.names[p],
+          need: tricksNeeded(p === defender ? target : bidSideTarget, state.trickCounts[p]),
+        }))}
+      />
 
       <div className="table table-fixed">
         <div className="table-seat away">
