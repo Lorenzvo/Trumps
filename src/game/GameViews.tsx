@@ -259,7 +259,7 @@ export function DrawPhaseView({
   const pileSize = state.draw.middlePile.length
 
   return (
-    <section className="panel">
+    <section className="panel panel-table">
       <h2>Draw phase</h2>
 
       <div className="table table-fixed">
@@ -340,18 +340,15 @@ export function BiddingView({
   const bidsLeft = (id: PlayerId) => 2 - state.bidding.bidCounts[id]
 
   return (
-    <section className="panel">
+    <section className="panel panel-table">
       <h2>Bidding</h2>
-      <p className="turn-banner-inline">
-        {state.names[current]}'s turn to bid
-        {isOpeningBid && ' — opener must bid, no passing yet'}
-      </p>
+      <p className="turn-banner-inline">{state.names[current]}'s turn to bid</p>
       <p>
-        Highest bid so far:{' '}
+        Highest bid:{' '}
         <strong>
           {state.bidding.highestBid
             ? `${state.bidding.highestBid.number} ${state.bidding.highestBid.mode} (${state.names[state.bidding.highestBid.playerId]})`
-            : 'none'}
+            : 'None'}
         </strong>
       </p>
 
@@ -425,7 +422,7 @@ export function TrumpView({
   const canAct = viewerPlayerId === winner
   const other = otherOf(viewerPlayerId)
   return (
-    <section className="panel">
+    <section className="panel panel-table">
       <h2>Name trump</h2>
       <p>
         {state.names[winner]} won the bid: <strong>{state.winningBid?.number} {state.winningBid?.mode}</strong>
@@ -584,7 +581,7 @@ export function TrickView({
   const canContinue = trickComplete && viewerPlayerId === lastWinner
 
   return (
-    <section className="panel">
+    <section className="panel panel-table">
       <h2 className="trick-progress">
         Trick {state.tricksPlayed} of {TOTAL_TRICKS}
       </h2>

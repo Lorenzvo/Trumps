@@ -81,16 +81,13 @@ export function BiddingView4P({
   return (
     <section className="panel">
       <h2>Bidding</h2>
-      <p className="turn-banner-inline">
-        {state.names[current]}'s turn to bid
-        {isOpeningBid && ' — opener must bid, no passing yet'}
-      </p>
+      <p className="turn-banner-inline">{state.names[current]}'s turn to bid</p>
       <p>
-        Highest bid so far:{' '}
+        Highest bid:{' '}
         <strong>
           {state.bidding.highestBid
             ? `${state.bidding.highestBid.number} ${state.bidding.highestBid.mode} (${state.names[state.bidding.highestBid.playerId]})`
-            : 'none'}
+            : 'None'}
         </strong>
       </p>
 

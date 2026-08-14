@@ -177,6 +177,15 @@
   text-align: center;
 }
 
+/* The phases with a felt .table inside (draw/bidding/trump/trick) don't need the
+   full ~49rem panel width — that just left a wide band of empty purple padding on
+   either side of the (already-narrowed) green felt table. This hugs the panel to
+   the table's width instead of shrinking the felt table further. */
+.panel-table {
+  max-width: 35rem;
+  margin: 1rem auto;
+}
+
 .error {
   background: var(--danger);
   color: #fff;
@@ -490,7 +499,14 @@ select:hover {
   border-radius: 22px;
   box-shadow: var(--shadow-lg);
   padding: 1rem;
-  margin: 1rem 0;
+  margin: 1rem auto;
+  /* Was full panel width (~49rem) — way wider than a 6-cards-per-row hand
+     (22.4rem) plus padding ever needs, leaving a lot of dead space on the
+     sides. Capped and centered instead. (27rem was cutting it too close and
+     made the felt itself look cramped — the actual excess space was in the
+     purple .panel around it, see .panel-table below, so the felt got some
+     room back.) */
+  max-width: 32rem;
   color: #fff8ec;
   display: flex;
   flex-direction: column;
@@ -510,9 +526,11 @@ select:hover {
 
 /* Draw and Trick phases share this fixed size — switching between "it's your turn" /
    "waiting" / mid-decision states never resizes the panel, and the two phases match
-   each other so the page doesn't jump when one follows the other. */
+   each other so the page doesn't jump when one follows the other. Brought down from
+   26rem alongside the table-center-action/trick reductions above — that old number
+   was sized for the wider, un-narrowed table. */
 .table.table-fixed {
-  min-height: 26rem;
+  min-height: 24rem;
 }
 
 /* Smaller, but still internally stable — used by phases with less on-screen (trump
@@ -553,9 +571,13 @@ select:hover {
 
 /* Reserves enough room for the tallest variant of the phase-specific action content
    (a full decision UI, not just a one-line "waiting" message), so toggling between
-   "your turn" and "waiting" never changes the panel's height. */
+   "your turn" and "waiting" never changes the panel's height. Bidding/trump override
+   this with their own smaller floor below, so in practice this is draw phase's box —
+   19.5rem was tuned before the table itself got narrowed to 27rem; now that the pile/
+   decision columns stack instead of sitting side by side, the tall state is shorter,
+   so this came down too. */
 .table-center-action {
-  min-height: 19.5rem;
+  min-height: 16rem;
   justify-content: center;
 }
 
@@ -597,7 +619,50 @@ select:hover {
   }
 }
 
+/* Desktop: the mobile-tuned sizes above (narrow table, 6-cards-per-row hand cap)
+   were making every phase a tall, narrow, portrait-shaped column even on a wide
+   screen — two wrapped rows of cards stacked above and below a center box, with
+   the whole thing floating in a sea of empty horizontal space. On room for it,
+   widen the table so a full 12-card hand fits on one row (removing a whole row
+   of real height, not just padding) and pull the reserved center-box heights
+   back down to match the now-shorter natural content. */
+@media (min-width: 900px) {
+  /* .game's own max-width (52rem) is the actual ceiling everything else inherits
+     through — widening .table/.panel-table alone did nothing until this went up
+     too, since .panel just fills whatever width .game hands it down. */
+  .game {
+    max-width: 58rem;
+  }
+
+  .panel-table {
+    max-width: 56rem;
+  }
+
+  .table {
+    max-width: 52rem;
+  }
+
+  .hand-cards {
+    max-width: 48rem;
+  }
+
+  .table.table-fixed {
+    min-height: 19rem;
+  }
+
+  .table-center-action {
+    min-height: 11rem;
+  }
+
+  .table-center-trick {
+    min-height: 11rem;
+  }
+}
+
 .table-center-bidding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   min-height: 4.5rem;
   justify-content: center;
   width: 100%;
