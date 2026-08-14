@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import type { Card, Mode, PlayerId, Suit } from '../engine'
 import { applyGameAction } from '../firebase/gameSync'
 import { fromFirestoreGame } from '../firebase/gameSerialize'
-import { endMatch, restartMatch, returnToLobby, subscribeToRoom, type RoomDoc } from '../firebase/rooms'
+import { endMatch, leaveSpectator, restartMatch, returnToLobby, subscribeToRoom, type RoomDoc } from '../firebase/rooms'
 import {
   BiddingView,
   ConfirmModal,
@@ -120,13 +120,22 @@ export function NetworkedTwoPlayerGame({
           <div className="title-row">
             <h1>Trumps</h1>
           </div>
-          <p className="badge-pixel">ROOM {room.code} · SPECTATING</p>
-          {watchingLine && <p className="badge-pixel">{watchingLine}</p>}
+          <div className="header-badges">
+            <p className="badge-pixel">ROOM {room.code} · SPECTATING</p>
+            {watchingLine && <p className="badge-soft">{watchingLine}</p>}
+          </div>
         </header>
 
         <SpectatorView state={fromFirestoreGame(room.game)} />
 
-        <button type="button" className="pill-btn" onClick={onLeave}>
+        <button
+          type="button"
+          className="pill-btn"
+          onClick={() => {
+            leaveSpectator(roomCode, clientId).catch(() => {})
+            onLeave()
+          }}
+        >
           ← Leave
         </button>
       </div>
@@ -201,10 +210,12 @@ export function NetworkedTwoPlayerGame({
             </button>
           )}
         </div>
-        <p className="badge-pixel">
-          ROOM {room.code} · ROUND {game.round} · YOU ARE {game.names[myPlayerId].toUpperCase()}
-        </p>
-        {watchingLine && <p className="badge-pixel">{watchingLine}</p>}
+        <div className="header-badges">
+          <p className="badge-pixel">
+            ROOM {room.code} · ROUND {game.round} · YOU ARE {game.names[myPlayerId].toUpperCase()}
+          </p>
+          {watchingLine && <p className="badge-soft">{watchingLine}</p>}
+        </div>
       </header>
 
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />

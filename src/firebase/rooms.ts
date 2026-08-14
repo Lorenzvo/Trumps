@@ -153,6 +153,21 @@ export async function becomeSpectator(roomCode: string, clientId: string): Promi
   })
 }
 
+/** A spectator leaving the room entirely (not swapping into a seat) — drops them from
+ *  room.spectators so the "watching" list/count doesn't keep showing someone who's
+ *  gone. Unlike becomeSpectator/claimSeat this isn't lobby-only: a spectator should
+ *  be able to leave whenever, mid-round included. */
+export async function leaveSpectator(roomCode: string, clientId: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) return // already gone, nothing to clean up
+    const room = snap.data() as RoomDoc
+    if (!room.spectators?.[clientId]) return
+    tx.update(ref, { [`spectators.${clientId}`]: deleteField() })
+  })
+}
+
 /** Lobby-only: a spectator takes an open seat. */
 export async function claimSeat(roomCode: string, seat: string, clientId: string): Promise<void> {
   const ref = roomRef(roomCode)

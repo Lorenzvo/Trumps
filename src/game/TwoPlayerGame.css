@@ -60,6 +60,33 @@
   margin: 0.5rem 0;
 }
 
+/* Row wrapper for header badges — .badge-pixel elements have no horizontal margin of
+   their own (by design, so a lone badge doesn't get lopsided spacing), so two side by
+   side need an explicit gap here rather than relying on inline-element whitespace,
+   which was only ever ~4px. */
+.header-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* Same pill shape as .badge-pixel, but in the regular UI font — the pixel font
+   (Silkscreen) only really has uppercase-style glyphs, which read as SHOUTY for a
+   sentence like "Watching: Casey" and silently drops emoji (👀 fell back to tofu
+   glyphs in that font). Regular font renders both correctly. */
+.badge-soft {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  display: inline-block;
+  margin: 0.5rem 0;
+}
+
 .trump-status-row {
   display: flex;
   justify-content: center;
