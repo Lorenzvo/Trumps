@@ -6,6 +6,7 @@
 // type them from a screen.
 
 import {
+  deleteField,
   doc,
   DocumentReference,
   getDoc,
@@ -14,10 +15,10 @@ import {
   serverTimestamp,
   type Unsubscribe,
 } from 'firebase/firestore'
-import type { PlayerId } from '../engine'
-import { startTwoPlayerRound } from '../game/twoPlayerReducer'
+import { nextTwoPOpener, type PlayerId } from '../engine'
+import { PLAYERS, startTwoPlayerRound } from '../game/twoPlayerReducer'
 import { db } from './config'
-import { toFirestoreGame, type FirestoreGameState } from './gameSerialize'
+import { fromFirestoreGame, toFirestoreGame, type FirestoreGameState } from './gameSerialize'
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 5
@@ -51,6 +52,12 @@ export interface RoomDoc {
   // both players are bound by equally, not a personal per-player preference. Missing
   // (older rooms created before this existed) is treated as false everywhere it's read.
   trackPlayedCardsEnabled?: boolean
+  // Anyone who joined a full/in-progress room instead of claiming a seat. Keyed by
+  // clientId (unlike seats, there's no fixed slot — any number of people can watch).
+  // Spectators already receive the full room doc same as players (see firestore.rules
+  // — there's no server-side hand-hiding at all today), so this is just bookkeeping
+  // for "who's watching" and the seat-swap UI, not an access-control mechanism.
+  spectators?: Record<string, Seat>
 }
 
 function seatOrderFor(mode: GameMode): string[] {
@@ -100,7 +107,9 @@ export async function createRoom(mode: GameMode, hostName: string, hostClientId:
   throw new Error('Could not generate a free room code, try again')
 }
 
-/** Atomically claims the next open seat in an existing lobby room. */
+/** Claims the next open seat in an existing lobby room — or, if there's no open seat
+ *  (room full, or already mid-match/ended), joins as a spectator instead of erroring.
+ *  That's the entire "join to spectate" flow: same room-code input, no separate UI. */
 export async function joinRoom(roomCode: string, name: string, clientId: string): Promise<void> {
   const ref = roomRef(roomCode)
   await runTransaction(db, async (tx) => {
@@ -110,17 +119,102 @@ export async function joinRoom(roomCode: string, name: string, clientId: string)
     const order = seatOrderFor(room.mode)
 
     // A previously-seated player rejoining (refresh, reconnect) is always fine, even
-    // mid-game — check this *before* the lobby-only check below, which is about
-    // blocking new players from joining a game that's already running.
+    // mid-game — check this before anything else below.
     const alreadySeated = order.find((seat) => room.seats[seat]?.clientId === clientId)
     if (alreadySeated) return
+    if (room.spectators?.[clientId]) return // already watching, no-op
 
-    if (room.status !== 'lobby') throw new Error('That game has already started')
+    const openSeat = room.status === 'lobby' ? order.find((seat) => !room.seats[seat]) : undefined
+    if (openSeat) {
+      tx.update(ref, { [`seats.${openSeat}`]: { clientId, name } satisfies Seat })
+    } else {
+      tx.update(ref, { [`spectators.${clientId}`]: { clientId, name } satisfies Seat })
+    }
+  })
+}
 
-    const openSeat = order.find((seat) => !room.seats[seat])
-    if (!openSeat) throw new Error('That room is already full')
+/** Lobby-only: a seated player steps down to spectator, freeing their seat for
+ *  someone else to take. Only meaningful between rounds — see returnToLobby. */
+export async function becomeSpectator(roomCode: string, clientId: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.status !== 'lobby') throw new Error('Seats can only be changed between rounds')
+    const order = seatOrderFor(room.mode)
+    const seat = order.find((s) => room.seats[s]?.clientId === clientId)
+    if (!seat) throw new Error("You're not currently seated")
+    const name = room.seats[seat]!.name
+    tx.update(ref, {
+      [`seats.${seat}`]: deleteField(),
+      [`spectators.${clientId}`]: { clientId, name } satisfies Seat,
+    })
+  })
+}
 
-    tx.update(ref, { [`seats.${openSeat}`]: { clientId, name } satisfies Seat })
+/** Lobby-only: a spectator takes an open seat. */
+export async function claimSeat(roomCode: string, seat: string, clientId: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.status !== 'lobby') throw new Error('Seats can only be changed between rounds')
+    const order = seatOrderFor(room.mode)
+    if (!order.includes(seat)) throw new Error('Invalid seat')
+    if (room.seats[seat]) throw new Error('That seat is already taken')
+    const spectator = room.spectators?.[clientId]
+    if (!spectator) throw new Error("You're not currently spectating")
+    tx.update(ref, {
+      [`seats.${seat}`]: { clientId, name: spectator.name } satisfies Seat,
+      [`spectators.${clientId}`]: deleteField(),
+    })
+  })
+}
+
+/** Sends everyone (both players and any spectators) back to the lobby screen between
+ *  rounds, via the same room.status the initial lobby-before-game-starts uses — reuses
+ *  all of Lobby's existing seat-list/routing rather than building a separate mid-game
+ *  "manage seats" screen. `room.game` is deliberately left as-is (not cleared): Lobby
+ *  uses it to show which round just finished, and continueToNextRound reads the round
+ *  number/opener back out of it. */
+export async function returnToLobby(roomCode: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.status !== 'playing') throw new Error('Not currently playing')
+    tx.update(ref, { status: 'lobby' })
+  })
+}
+
+/** Deals the next round and resumes play, continuing the round count/opener rotation
+ *  from the previous round — unlike restartMatch, which scraps everything back to
+ *  round 1. Reads player names fresh from the current seats (not the stale names
+ *  baked into the previous round's game state), since rotation may have swapped who's
+ *  actually sitting in p1/p2 while everyone was back in the lobby. */
+export async function continueToNextRound(roomCode: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.mode !== '2p') throw new Error('Only 2P games are wired up currently')
+    if (!room.game) throw new Error('No round to continue from — start a new game instead')
+
+    const order = seatOrderFor(room.mode)
+    const filled = order.every((seat) => room.seats[seat])
+    if (!filled) throw new Error('Waiting for players to fill both seats')
+
+    const prevGame = fromFirestoreGame(room.game)
+    const names: Record<PlayerId, string> = {
+      p1: room.seats.p1!.name,
+      p2: room.seats.p2!.name,
+    }
+    const nextRound = startTwoPlayerRound(prevGame.round + 1, nextTwoPOpener(prevGame.opener, PLAYERS), names)
+    tx.update(ref, { status: 'playing', game: toFirestoreGame(nextRound) })
   })
 }
 
