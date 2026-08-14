@@ -61,7 +61,7 @@ describe('2P draw phase', () => {
     expect(state.middlePile).toHaveLength(0)
     expect(state.discardPile).toHaveLength(24)
 
-    const allIds = [...state.hands[0], ...state.hands[1], ...state.discardPile].map(cardId)
+    const allIds = [...state.hands[0], ...state.hands[1], ...state.discardPile.map((d) => d.card)].map(cardId)
     expect(new Set(allIds).size).toBe(48)
   })
 
@@ -86,7 +86,7 @@ describe('2P draw phase', () => {
 
     const afterResolve = resolveDraw(afterDraw, 'keep')
     expect(afterResolve.hands[0]).toEqual([drawn])
-    expect(afterResolve.discardPile).toEqual([autoDiscarded])
+    expect(afterResolve.discardPile).toEqual([{ card: autoDiscarded, seat: 0 }])
   })
 
   it('on discard: the drawn card is discarded and the next card is forced into the hand', () => {
@@ -96,7 +96,7 @@ describe('2P draw phase', () => {
     const forced = state.middlePile[1]
 
     const afterResolve = resolveDraw(drawCard(state), 'discard')
-    expect(afterResolve.discardPile).toEqual([drawn])
+    expect(afterResolve.discardPile).toEqual([{ card: drawn, seat: 0 }])
     expect(afterResolve.hands[0]).toEqual([forced])
   })
 

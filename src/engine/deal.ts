@@ -46,11 +46,20 @@ export function deal4Players(
 
 export type SeatIndex = 0 | 1
 
+/** A card removed from the draw phase, tagged with whose turn produced it — either
+ *  the drawn card that seat actively chose to discard, or the next pile card that
+ *  got auto-discarded as a side effect of that seat choosing to keep (never seen by
+ *  anyone in that case, but still "their" discard for round-end display purposes). */
+export interface DiscardedCard {
+  card: Card
+  seat: SeatIndex
+}
+
 export interface DrawPhaseState {
   middlePile: Card[]
   hands: [Card[], Card[]]
-  /** Cards permanently removed from the game, unseen by anyone. */
-  discardPile: Card[]
+  /** Cards permanently removed from the game. */
+  discardPile: DiscardedCard[]
   turn: SeatIndex
   /** The card just drawn from the pile, awaiting a keep/discard decision. */
   pendingCard: Card | null
@@ -100,11 +109,11 @@ export function resolveDraw(state: DrawPhaseState, decision: 'keep' | 'discard')
   if (decision === 'keep') {
     hands[state.turn].push(pending)
     if (middlePile.length > 0) {
-      discardPile.push(middlePile[0])
+      discardPile.push({ card: middlePile[0], seat: state.turn })
       middlePile = middlePile.slice(1)
     }
   } else {
-    discardPile.push(pending)
+    discardPile.push({ card: pending, seat: state.turn })
     if (middlePile.length > 0) {
       hands[state.turn].push(middlePile[0])
       middlePile = middlePile.slice(1)

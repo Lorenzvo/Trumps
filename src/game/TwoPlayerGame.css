@@ -731,6 +731,27 @@ select:hover {
   margin: 0.5rem 0;
 }
 
+.discard-summary {
+  margin: 0.75rem 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.discard-summary h3 {
+  margin: 0 0 0.5rem;
+}
+
+.discard-row {
+  margin: 0.5rem 0;
+}
+
+.discard-row .hand-cards {
+  /* Smaller than a live hand's row — just a handful of discards, no need to reserve
+     a full card-row's worth of height or wrap width. */
+  min-height: 0;
+  max-width: 30rem;
+}
+
 /* --- rules modal --- */
 
 .modal-backdrop {

@@ -674,6 +674,13 @@ export function RoundEndView({ state, onNextRound }: { state: TwoPlayerGameState
   const target = computeTarget((state.winningBid as Bid).number)
   const bidderWon = state.outcome === 'bidders_win' || state.outcome === 'bidders_clinched'
 
+  // Every draw-phase discard is tagged with whose turn produced it — including the
+  // "auto-discarded, never seen by anyone" ones from the keep path — so this is the
+  // full draw-phase discard history per seat, not just cards someone actively chose
+  // to reject.
+  const discardsBySeat: [Card[], Card[]] = [[], []]
+  for (const { card, seat } of state.draw.discardPile) discardsBySeat[seat].push(card)
+
   return (
     <section className="panel result-panel">
       <h2>Round {state.round} over</h2>
@@ -689,6 +696,23 @@ export function RoundEndView({ state, onNextRound }: { state: TwoPlayerGameState
         {bidderWon ? `🏆 ${state.names[bidWinner]}'s side wins the round!` : `🏆 ${state.names[defender]} wins the round!`}
         {state.outcome === 'bidders_clinched' && ' (ended early)'}
       </p>
+
+      <div className="discard-summary">
+        <h3>Discarded cards this round</h3>
+        {PLAYERS.map((p, seat) => (
+          <div key={p} className="discard-row">
+            <p className="hand-label">{state.names[p]} discarded:</p>
+            <div className="hand-cards">
+              {discardsBySeat[seat].length === 0 ? (
+                <p className="hint">None</p>
+              ) : (
+                sortHandForDisplay(discardsBySeat[seat]).map((card, i) => <CardChip key={cardId(card) + i} card={card} index={i} />)
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <button type="button" className="pill-btn primary" onClick={onNextRound}>
         Next round
       </button>
