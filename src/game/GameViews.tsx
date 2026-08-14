@@ -142,6 +142,7 @@ export function CardChip({
       style={{ '--i': index } as React.CSSProperties}
       onClick={onClick}
       disabled={!onClick || illegal}
+      aria-label={`${card.rank} of ${capitalize(card.suit)}${illegal ? ' (not a legal play)' : ''}`}
     >
       <span className="card-rank">{card.rank}</span>
       <span className="card-suit">{SUIT_SYMBOL[card.suit]}</span>
@@ -253,8 +254,8 @@ export function DrawPhaseView({
                 </button>
               </div>
               <p className="hint">
-                Keep: this card joins your hand, then the next card auto-discards unseen. Discard: this card is gone
-                unseen, and you're forced to keep whatever comes up next — watch it land in your hand below.
+                <strong>Keep</strong> — it joins your hand, and the next card quietly vanishes.{' '}
+                <strong>Discard</strong> — it's gone, and whatever's next is yours, ready or not.
               </p>
             </div>
           )}
@@ -438,9 +439,7 @@ export function KittyView({
   return (
     <section className="panel">
       <h2>Kitty exchange</h2>
-      <p className="hint">
-        You may swap any number of kitty cards into your hand (discarding the same number back out).
-      </p>
+      <p className="hint">Swap any number of kitty cards into your hand — discard the same number back out.</p>
       <h3>Kitty — click to take</h3>
       <div className="hand-cards">
         {state.kitty.map((card, i) => (
@@ -544,8 +543,8 @@ export function TrickView({
               {canOfferEarlyEnd(state.outcome) ? (
                 <>
                   <p className="hint">
-                    {state.names[defender]} can no longer reach {target} tricks — {state.names[bidWinner]}'s side has
-                    clinched. Both sides may end now, or play out all 12 tricks.
+                    {state.names[defender]} can't reach {target} tricks anymore — {state.names[bidWinner]}'s side has
+                    it locked in. Call it now, or play out all 12 for the full tally.
                   </p>
                   <button type="button" className="pill-btn primary" onClick={onEndEarly}>
                     End round now

@@ -28,6 +28,11 @@
   --suit-red: #e5484d;
   --suit-black: #453a68;
 
+  /* Card faces stay a fixed warm cream in both themes — real cards don't have a dark
+     mode, and a fixed light face is what makes them pop against the felt table. */
+  --card-face: #fffaf0;
+  --card-ink: #3d3352;
+
   --felt: #1f7a68;
   --felt-deep: #145c4e;
 
@@ -77,7 +82,25 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
   background: var(--bg);
+  /* Soft, subtle radial glow + a fine dot texture so the page reads as an
+     intentional, fully-designed surface rather than empty dead space around a
+     small floating panel. */
+  background-image:
+    radial-gradient(ellipse 60% 50% at 30% 0%, color-mix(in srgb, var(--primary) 10%, transparent), transparent),
+    radial-gradient(ellipse 50% 40% at 85% 20%, color-mix(in srgb, var(--secondary) 10%, transparent), transparent),
+    radial-gradient(circle, color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 1px);
+  background-size: auto, auto, 22px 22px;
+  background-attachment: fixed, fixed, fixed;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: safe center;
+  min-height: 100vh;
+  padding: clamp(1.5rem, 5vh, 4rem) 0;
 }
 
 h1,
