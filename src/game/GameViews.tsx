@@ -727,6 +727,102 @@ export function TrickView({
   )
 }
 
+// --- spectator view ------------------------------------------------------------
+
+/** Read-only "god view" for anyone watching rather than playing — both hands fully
+ *  revealed at all times (there's nothing to hide from a spectator; see the comment
+ *  on RoomDoc.spectators in rooms.ts for why that's true at the data layer too), no
+ *  action controls, one phase-appropriate status line instead of each phase's full
+ *  interactive layout. */
+export function SpectatorView({ state }: { state: TwoPlayerGameState }) {
+  const mode = state.winningBid?.mode ?? 'high'
+  const p1Hand = state.phase === 'draw' ? state.draw.hands[0] : state.hands.p1
+  const p2Hand = state.phase === 'draw' ? state.draw.hands[1] : state.hands.p2
+
+  const phaseTitle: Record<TwoPlayerGameState['phase'], string> = {
+    draw: 'Draw phase',
+    bidding: 'Bidding',
+    trump: 'Naming trump',
+    kitty: 'Kitty exchange',
+    trick: `Trick ${state.tricksPlayed} of ${TOTAL_TRICKS}`,
+    'round-end': `Round ${state.round} over`,
+  }
+
+  return (
+    <section className="panel">
+      <h2>👀 Spectating — {phaseTitle[state.phase]}</h2>
+
+      {state.phase === 'draw' && (
+        <p className="hint">
+          {state.names[(['p1', 'p2'] as const)[state.draw.turn]]}'s turn to draw • pile: {state.draw.middlePile.length} left
+        </p>
+      )}
+      {state.phase === 'bidding' && (
+        <p className="hint">
+          {state.names[state.bidding.currentBidder]}'s turn to bid • highest:{' '}
+          {state.bidding.highestBid
+            ? `${state.bidding.highestBid.number} ${state.bidding.highestBid.mode} (${state.names[state.bidding.highestBid.playerId]})`
+            : 'None'}
+        </p>
+      )}
+      {state.phase === 'trump' && (
+        <p className="hint">{state.names[(state.winningBid as Bid).playerId]} is naming trump…</p>
+      )}
+      {state.phase === 'kitty' && (
+        <p className="hint">{state.names[(state.winningBid as Bid).playerId]} is exchanging with the kitty…</p>
+      )}
+      {state.phase === 'trick' && state.trumpSuit && (
+        <>
+          <TrumpBadge suit={state.trumpSuit} mode={mode} broken={state.trumpBroken} />
+          {(() => {
+            const bidWinner = (state.winningBid as Bid).playerId
+            const defender = otherOf(bidWinner)
+            const target = computeTarget((state.winningBid as Bid).number)
+            const bidSideTarget = TOTAL_TRICKS + 1 - target
+            return (
+              <NeedsRow
+                entries={PLAYERS.map((p) => ({
+                  name: state.names[p],
+                  need: p === defender ? target : bidSideTarget,
+                }))}
+              />
+            )
+          })()}
+        </>
+      )}
+      {state.phase === 'round-end' && (
+        <p className="hint">
+          Bid: {state.winningBid?.number} {state.winningBid?.mode} by {state.names[(state.winningBid as Bid).playerId]}
+        </p>
+      )}
+
+      <div className="table">
+        <div className="table-seat away">
+          <Hand name={state.names.p1} hand={sortHandForDisplay(p1Hand, mode)} revealed />
+        </div>
+
+        {state.phase === 'trick' && (
+          <div className="table-center">
+            <div className="trick-area">
+              {state.trick.plays.length === 0 && state.trickLeader && <p>{state.names[state.trickLeader]} leads.</p>}
+              {state.trick.plays.map((p) => (
+                <div key={p.playerId} className="trick-play">
+                  <span className="hint">{state.names[p.playerId]}</span>
+                  <CardChip card={p.card} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="table-seat near">
+          <Hand name={state.names.p2} hand={sortHandForDisplay(p2Hand, mode)} revealed />
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // --- played-cards tracker, opt-in --------------------------------------------------
 
 /** Every card played so far this round (completed tricks + the trick in progress),

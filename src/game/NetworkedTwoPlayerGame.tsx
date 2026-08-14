@@ -18,6 +18,7 @@ import {
   PlayedCardsPanel,
   RoundEndView,
   RulesModal,
+  SpectatorView,
   TrickView,
   TrumpView,
 } from './GameViews'
@@ -88,16 +89,46 @@ export function NetworkedTwoPlayerGame({
 
   const myPlayerId: PlayerId | null =
     room.seats.p1?.clientId === clientId ? 'p1' : room.seats.p2?.clientId === clientId ? 'p2' : null
+  const spectators = Object.values(room.spectators ?? {})
+  const watchingLine = spectators.length > 0 ? `👀 Watching: ${spectators.map((s) => s.name).join(', ')}` : null
 
   if (!myPlayerId) {
+    if (!room.spectators?.[clientId]) {
+      return (
+        <div className="game">
+          <section className="panel">
+            <p className="error">You're not a player in this room.</p>
+            <button type="button" className="pill-btn" onClick={onLeave}>
+              ← Back to menu
+            </button>
+          </section>
+        </div>
+      )
+    }
+
+    if (!room.game) {
+      return (
+        <div className="game">
+          <p className="turn-banner">Waiting for the game to start…</p>
+        </div>
+      )
+    }
+
     return (
       <div className="game">
-        <section className="panel">
-          <p className="error">You're not a player in this room.</p>
-          <button type="button" className="pill-btn" onClick={onLeave}>
-            ← Back to menu
-          </button>
-        </section>
+        <header className="game-header">
+          <div className="title-row">
+            <h1>Trumps</h1>
+          </div>
+          <p className="badge-pixel">ROOM {room.code} · SPECTATING</p>
+          {watchingLine && <p className="badge-pixel">{watchingLine}</p>}
+        </header>
+
+        <SpectatorView state={fromFirestoreGame(room.game)} />
+
+        <button type="button" className="pill-btn" onClick={onLeave}>
+          ← Leave
+        </button>
       </div>
     )
   }
@@ -173,6 +204,7 @@ export function NetworkedTwoPlayerGame({
         <p className="badge-pixel">
           ROOM {room.code} · ROUND {game.round} · YOU ARE {game.names[myPlayerId].toUpperCase()}
         </p>
+        {watchingLine && <p className="badge-pixel">{watchingLine}</p>}
       </header>
 
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
