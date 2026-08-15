@@ -39,7 +39,18 @@ export function sortHandForDisplay(hand: readonly Card[], mode: Mode = 'high'): 
 /** Renders as CSS-gapped entries rather than hand-joining strings with &nbsp;/text —
  *  manual whitespace between a JSX text node and the next expression is easy to get
  *  subtly uneven (trailing spaces around &nbsp; stack with JSX's own line-join space). */
-export function NeedsRow({ entries }: { entries: Array<{ name: string; need: number }> }) {
+export function NeedsRow({
+  entries,
+}: {
+  entries: Array<{
+    name: string
+    need: number
+    /** 4P colors team names (team-blue/team-red) here; 2P leaves this unset. Kept as
+     *  a className rather than widening `name` to ReactNode so it can stay a plain
+     *  string usable as the React key below. */
+    nameClassName?: string
+  }>
+}) {
   return (
     <div className="needs-row">
       {entries.map((e, i) => (
@@ -49,7 +60,7 @@ export function NeedsRow({ entries }: { entries: Array<{ name: string; need: num
               |
             </span>
           )}
-          {e.name} needs <strong>{e.need}</strong>
+          <span className={e.nameClassName}>{e.name}</span> needs <strong>{e.need}</strong>
         </span>
       ))}
     </div>
@@ -277,7 +288,7 @@ export function Hand({
   count,
   labelPosition = 'top',
 }: {
-  name: string
+  name: React.ReactNode
   hand: Card[]
   revealed: boolean
   onPlay?: (card: Card) => void

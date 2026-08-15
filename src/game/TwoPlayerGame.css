@@ -174,6 +174,17 @@
   gap: 0.6rem;
 }
 
+/* 4P team-name coloring — see TeamLabel in GameViews4P.tsx. */
+.team-blue {
+  color: var(--team-blue);
+  font-weight: 700;
+}
+
+.team-red {
+  color: var(--team-red);
+  font-weight: 700;
+}
+
 .needs-sep {
   opacity: 0.45;
 }

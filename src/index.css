@@ -28,6 +28,12 @@
   --suit-red: #e5484d;
   --suit-black: #453a68;
 
+  /* 4P team colors — distinct from --primary (purple) and the suit colors above, so
+     "Blue"/"Red" mentions read as team identity at a glance instead of blending into
+     the surrounding text. */
+  --team-blue: #2f7de1;
+  --team-red: #e5484d;
+
   /* Card faces stay a fixed warm cream in both themes — real cards don't have a dark
      mode, and a fixed light face is what makes them pop against the felt table. */
   --card-face: #fffaf0;
@@ -66,6 +72,9 @@
 
     --suit-red: #ff7b81;
     --suit-black: #b6a8f2;
+
+    --team-blue: #7db4ff;
+    --team-red: #ff7b81;
 
     --felt: #14493d;
     --felt-deep: #0d332b;

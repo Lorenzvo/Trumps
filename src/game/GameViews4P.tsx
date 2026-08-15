@@ -6,15 +6,20 @@
 
 import { useState } from 'react'
 import { canOfferEarlyEnd, computeTarget, isPass, legalCardsToPlay, SUITS, TOTAL_TRICKS } from '../engine'
-import type { Card, Mode, PlayerId, Suit } from '../engine'
+import type { Card, Mode, PlayerId, Suit, TeamId } from '../engine'
 import { CardBack, CardChip, Hand, NeedsRow, SUIT_SYMBOL, TrumpBadge, capitalize, isRedSuit, sortHandForDisplay } from './GameViews'
-import {
-  nextToActInTrick,
-  opposingTeam,
-  teamsOf,
-  teamTricks,
-  type FourPlayerGameState,
-} from './fourPlayerReducer'
+import { nextToActInTrick, opposingTeam, teamsOf, teamTricks, type FourPlayerGameState } from './fourPlayerReducer'
+
+/** Colors "Blue"/"Red" team mentions instead of leaving them the same color as
+ *  surrounding text — team names came up as plain text everywhere (opponent labels,
+ *  bid announcements, round-end summary), which meant actually telling the teams
+ *  apart at a glance relied on reading the word rather than seeing it. Any other
+ *  team string (there isn't one today, but TeamId is just `string`) renders
+ *  uncolored rather than guessing. */
+function TeamLabel({ team }: { team: TeamId }) {
+  const cls = team === 'Blue' ? 'team-blue' : team === 'Red' ? 'team-red' : undefined
+  return <span className={cls}>{team}</span>
+}
 
 /** The other 3 seats, in table order starting just after the viewer — so they read
  *  left-to-right the way they'd actually sit around the table from your seat. */
@@ -26,7 +31,7 @@ function otherSeatsInOrder(state: FourPlayerGameState, viewerPlayerId: PlayerId)
 /** A face-down opponent summary — just a name, team, and count, not their full hand
  *  rendered as individual card-backs (3 opponents x 12 cards each gets visually
  *  noisy fast). */
-function MiniHand({ name, count }: { name: string; count: number }) {
+function MiniHand({ name, count }: { name: React.ReactNode; count: number }) {
   return (
     <div className="hand hand-hidden mini-hand">
       <h3 className="hand-label">
@@ -53,7 +58,15 @@ function OpponentRow({
   return (
     <div className="table-seat away-row">
       {otherSeatsInOrder(state, viewerPlayerId).map((p) => (
-        <MiniHand key={p} name={`${state.names[p]} (${state.teams[p]})`} count={getCount(p)} />
+        <MiniHand
+          key={p}
+          name={
+            <>
+              {state.names[p]} (<TeamLabel team={state.teams[p]} />)
+            </>
+          }
+          count={getCount(p)}
+        />
       ))}
     </div>
   )
@@ -137,7 +150,11 @@ export function BiddingView4P({
 
         <div className="table-seat near">
           <Hand
-            name={`${state.names[viewerPlayerId]} (you · ${state.teams[viewerPlayerId]})`}
+            name={
+              <>
+                {state.names[viewerPlayerId]} (you · <TeamLabel team={state.teams[viewerPlayerId]} />)
+              </>
+            }
             hand={sortHandForDisplay(state.hands[viewerPlayerId])}
             revealed
           />
@@ -164,7 +181,7 @@ export function TrumpView4P({
     <section className="panel panel-table">
       <h2>Name trump</h2>
       <p>
-        {state.names[winner]} ({state.teams[winner]}) won the bid:{' '}
+        {state.names[winner]} (<TeamLabel team={state.teams[winner]} />) won the bid:{' '}
         <strong>
           {state.winningBid!.number} {state.winningBid!.mode}
         </strong>
@@ -205,7 +222,11 @@ export function TrumpView4P({
 
         <div className="table-seat near">
           <Hand
-            name={`${state.names[viewerPlayerId]} (you · ${state.teams[viewerPlayerId]})`}
+            name={
+              <>
+                {state.names[viewerPlayerId]} (you · <TeamLabel team={state.teams[viewerPlayerId]} />)
+              </>
+            }
             hand={sortHandForDisplay(state.hands[viewerPlayerId])}
             revealed
           />
@@ -338,10 +359,18 @@ export function TrickView4P({
       </h2>
       <TrumpBadge suit={trumpSuit} mode={state.winningBid!.mode} broken={state.trumpBroken} />
       <NeedsRow
-        entries={[teamA, teamB].map((team) => ({
-          name: team,
-          need: team === defendTeam ? target : bidSideTarget,
-        }))}
+        entries={[teamA, teamB].map((team) => {
+          const fullTarget = team === defendTeam ? target : bidSideTarget
+          return {
+            name: team,
+            // Counts down as the team banks tricks (combined between both partners),
+            // floored at 0 once they've clinched — doesn't go negative if play
+            // continues past that point (see canOfferEarlyEnd below, unaffected by
+            // this display).
+            need: Math.max(0, fullTarget - teamTricks(state, team)),
+            nameClassName: team === 'Blue' ? 'team-blue' : team === 'Red' ? 'team-red' : undefined,
+          }
+        })}
       />
 
       <div className="table table-fixed">
@@ -365,8 +394,8 @@ export function TrickView4P({
                 canOfferEarlyEnd(state.outcome) ? (
                   <>
                     <p className="hint">
-                      {defendTeam} can't reach {target} tricks anymore — {bidTeam} has it locked in. Call it now, or
-                      play out all 12 for the full tally.
+                      <TeamLabel team={defendTeam} /> can't reach {target} tricks anymore — <TeamLabel team={bidTeam} /> has it
+                      locked in. Call it now, or play out all 12 for the full tally.
                     </p>
                     <button type="button" className="pill-btn primary" onClick={onEndEarly}>
                       End round now
@@ -399,7 +428,11 @@ export function TrickView4P({
 
         <div className="table-seat near">
           <Hand
-            name={`${state.names[viewerPlayerId]} (you · ${state.teams[viewerPlayerId]})`}
+            name={
+              <>
+                {state.names[viewerPlayerId]} (you · <TeamLabel team={state.teams[viewerPlayerId]} />)
+              </>
+            }
             hand={sortHandForDisplay(state.hands[viewerPlayerId], state.winningBid!.mode)}
             revealed
             onPlay={canAct ? onPlayCard : undefined}
@@ -423,17 +456,17 @@ export function RoundEndView4P({ state, onNextRound }: { state: FourPlayerGameSt
     <section className="panel result-panel">
       <h2>Round {state.round} over</h2>
       <p>
-        Bid: {state.winningBid!.number} {state.winningBid!.mode} by {state.names[bidWinner]} ({bidTeam})
+        Bid: {state.winningBid!.number} {state.winningBid!.mode} by {state.names[bidWinner]} (<TeamLabel team={bidTeam} />)
       </p>
       <p>
-        {defendTeam} needed {target} tricks.
+        <TeamLabel team={defendTeam} /> needed {target} tricks.
       </p>
       <p>
-        Final Score: {bidTeam}: <strong>{teamTricks(state, bidTeam)}</strong> &nbsp;|&nbsp; {defendTeam}:{' '}
-        <strong>{teamTricks(state, defendTeam)}</strong>
+        Final Score: <TeamLabel team={bidTeam} />: <strong>{teamTricks(state, bidTeam)}</strong> &nbsp;|&nbsp;{' '}
+        <TeamLabel team={defendTeam} />: <strong>{teamTricks(state, defendTeam)}</strong>
       </p>
       <p className="result">
-        {bidderWon ? `🏆 ${bidTeam} wins the round!` : `🏆 ${defendTeam} wins the round!`}
+        🏆 <TeamLabel team={bidderWon ? bidTeam : defendTeam} /> wins the round!
         {state.outcome === 'bidders_clinched' && ' (ended early)'}
       </p>
       <button type="button" className="pill-btn primary" onClick={onNextRound}>
