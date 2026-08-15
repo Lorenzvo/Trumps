@@ -108,8 +108,9 @@ export function startFourPBidding(order: readonly [PlayerId, PlayerId, PlayerId,
 
 /**
  * Applies one bid or pass to 4P bidding state (spec §1.4): one bid per player in turn
- * order; highest bid standing at the end wins. Unlike 2P, a later bid does not need to
- * outrank the current highest — it simply won't win if it's lower.
+ * order; highest bid standing at the end wins. As in 2P, a bid must strictly outrank
+ * the current highest — a player who can't or doesn't want to raise must pass instead
+ * of bidding a number that can't win.
  *
  * As in 2P, the very first action of the round (the opener, `order[0]`) can never be a
  * pass — someone always bids. That guarantees `winner` is never null once complete.
@@ -126,9 +127,10 @@ export function applyFourPBid(state: FourPBiddingState, action: BidAction): Four
   let highestBid = state.highestBid
   if (!isPass(action)) {
     if (!isValidBidNumber(action.number)) throw new Error('Bid number must be an integer from 2 to 7')
-    if (!highestBid || compareBids(action, highestBid) > 0) {
-      highestBid = action
+    if (highestBid && compareBids(action, highestBid) <= 0) {
+      throw new Error('A bid must be strictly higher than the current highest bid')
     }
+    highestBid = action
   }
 
   const bidsMade = [...state.bidsMade, action]

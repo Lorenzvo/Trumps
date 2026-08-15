@@ -45,8 +45,9 @@ trick-taking card game. Built for a small friend group, playable from separate d
 - **2P bidding flow:** first bidder opens; second player must either raise
   (bid strictly higher per the ranking above) or pass. A pass immediately awards the
   bid to the other player. Each player may do this up to twice.
-- **4P bidding flow:** one bid per player in turn order (bid or pass); highest bid at
-  the end wins.
+- **4P bidding flow:** one bid per player in turn order. Each bid must strictly outrank
+  the current highest (same raise rule as 2P) — a player who can't or doesn't want to
+  raise passes instead. Highest bid standing at the end wins.
 - **Trump suit:** always announced openly to both players/all four players immediately
   once declared — never hidden.
   - Normally, trump must be named **blind** (before seeing the kitty).

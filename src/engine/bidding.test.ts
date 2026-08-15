@@ -80,11 +80,21 @@ describe('4P bidding', () => {
     state = applyFourPBid(state, { playerId: 'red1', pass: true })
     state = applyFourPBid(state, { playerId: 'blue2', number: 5, mode: 'low' })
     expect(state.complete).toBe(false)
-    // A later bid doesn't have to outrank the current highest — it just won't win.
-    state = applyFourPBid(state, { playerId: 'red2', number: 4, mode: 'high' })
+    // Like 2P, a bid must outrank the current highest to be legal — red2 can't bid
+    // 4 high here (it doesn't beat blue2's 5 low), so they pass instead.
+    state = applyFourPBid(state, { playerId: 'red2', pass: true })
     expect(state.complete).toBe(true)
     expect(state.winner).toBe('blue2')
     expect(state.highestBid).toEqual({ playerId: 'blue2', number: 5, mode: 'low' })
+  })
+
+  it('rejects a bid that does not outrank the current highest, same as 2P', () => {
+    let state = startFourPBidding(['blue1', 'red1', 'blue2', 'red2'])
+    state = applyFourPBid(state, { playerId: 'blue1', number: 5, mode: 'low' })
+    // Equal value (tie) is rejected...
+    expect(() => applyFourPBid(state, { playerId: 'red1', number: 5, mode: 'low' })).toThrow()
+    // ...and so is a genuinely lower bid.
+    expect(() => applyFourPBid(state, { playerId: 'red1', number: 4, mode: 'high' })).toThrow()
   })
 
   it('rejects bidding out of turn order', () => {
