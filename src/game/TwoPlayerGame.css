@@ -665,6 +665,139 @@ select:hover {
   .draw-center {
     flex-direction: column;
   }
+
+  /* .draw-center-pile/-decision's flex: 1 1 14rem (below) sets their *width* in the
+     row layout above — once flex-direction flips to column, the same flex-basis
+     applies to the main axis again, but the main axis is now vertical, so it was
+     forcing each section to a 14rem-tall box regardless of how little it actually
+     had in it (a one-line pile badge, or just a "Draw a card" button). That's most
+     of what made the draw phase read as excessively tall on a narrow screen — each
+     section now just sizes to its own content instead. */
+  .draw-center-pile,
+  .draw-center-decision {
+    flex: 0 1 auto;
+    width: 100%;
+  }
+}
+
+/* True phone widths: the "mobile-tuned" base sizes above still assume a bit more
+   room than an actual phone gives them, which stacked up into a lot of vertical
+   scrolling — smaller cards (so hands wrap into fewer rows), tighter spacing, and
+   shorter reserved center-box heights (draw phase's table-fixed/table-center-action
+   most of all, since it stacks the biggest reservation on top of both hands; the
+   other phases get a smaller trim since they don't compound the same way). Also
+   tightens .trick-area's card gap — at this width the old 1.5rem gap between 4P's
+   4 played cards ate up nearly the whole felt table, reading as the cards being
+   spread edge to edge rather than grouped in the middle. */
+@media (max-width: 480px) {
+  .game {
+    padding: 0.75rem 0.85rem 1rem;
+  }
+
+  .panel {
+    padding: 0.9rem 0.9rem 1.1rem;
+    margin: 0.6rem 0;
+  }
+
+  .table {
+    padding: 0.7rem;
+    margin: 0.6rem auto;
+    gap: 0.5rem;
+  }
+
+  .table-seat {
+    min-height: 4.6rem;
+  }
+
+  .away-row {
+    gap: 0.85rem;
+  }
+
+  .card-chip {
+    width: 2.75rem;
+    height: 3.9rem;
+    border-radius: 9px;
+  }
+
+  .card-rank {
+    font-size: 0.92rem;
+  }
+
+  .card-suit {
+    font-size: 1.15rem;
+  }
+
+  .hand-cards {
+    gap: 0.3rem;
+    max-width: 19rem;
+    min-height: 4rem;
+    margin: 0.4rem auto 0.7rem;
+  }
+
+  .mini-hand .card-back {
+    width: 2.1rem;
+    height: 2.9rem;
+  }
+
+  .mini-hand .hand-cards {
+    min-height: 2.9rem;
+  }
+
+  /* .pile-stack has its own explicit width/height (matching the default card-chip
+     size) rather than inheriting from .card-chip, so it needs the same trim as
+     .card-chip above or it stays desktop-sized regardless of everything else here. */
+  .pile-stack {
+    width: 2.75rem;
+    height: 3.9rem;
+    margin: 0.3rem 0;
+  }
+
+  /* Draw and trick phases: the biggest reservation, so the biggest trim. */
+  .table.table-fixed {
+    min-height: 19rem;
+  }
+
+  .table-center-action {
+    min-height: 12rem;
+  }
+
+  .table-center-trick {
+    min-height: 10rem;
+  }
+
+  /* Trump naming: less on-screen than draw/trick to begin with, so a smaller trim. */
+  .table.table-compact {
+    min-height: 15.5rem;
+  }
+
+  .table-center-bidding {
+    min-height: 3.6rem;
+  }
+
+  .table-center-trump {
+    min-height: 3.2rem;
+  }
+
+  .draw-center {
+    gap: 1rem;
+  }
+
+  /* The actual "cards spread to the edges" fix — bunch the trick's played cards
+     closer together instead of a gap sized for a wider table. */
+  .trick-area {
+    gap: 0.55rem;
+    min-height: 3.6rem;
+  }
+
+  .status-box {
+    min-width: 5.2rem;
+    padding: 0.4rem 0.7rem;
+  }
+
+  .trump-status-row {
+    gap: 0.4rem;
+    margin: 0.4rem 0;
+  }
 }
 
 /* Desktop: the mobile-tuned sizes above (narrow table, 6-cards-per-row hand cap)
