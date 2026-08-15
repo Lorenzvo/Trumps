@@ -848,10 +848,11 @@ select:hover {
   max-width: 26rem;
   width: 100%;
   /* Fixed height regardless of step content length — the shortest step and the
-     longest step (Bidding) both fit within this, so the modal never resizes as you
-     click through. A little taller than the tightest fit so Bidding's text doesn't
-     crowd the Next button against the bottom edge. */
-  height: 26rem;
+     longest step (Tricks, in 2P; Bidding/Tricks in 4P) both fit within this, so the
+     modal never resizes as you click through. A little taller than the tightest fit
+     so the longest step's text doesn't crowd the Next button against the bottom
+     edge. */
+  height: 27rem;
   display: flex;
   flex-direction: column;
   text-align: center;
@@ -889,9 +890,18 @@ select:hover {
    group has room to spare — for the longer steps (Bidding, Trump, Tricks) the body
    text already fills most of the flex space, so centering barely moves anything and
    the title still sits right under the RULES x/y badge. This margin nudges it down
-   a fixed amount regardless of how much room the body leaves. */
+   a fixed amount regardless of how much room the body leaves — kept modest so the
+   longest steps' text doesn't get pushed down into the Back/Next buttons. */
 .modal-content h2 {
-  margin-top: 1.25rem;
+  margin-top: 0.75rem;
+}
+
+/* The RULES x/y badge sits close enough to .modal-close (top: 0.6rem, 2rem square)
+   that they visually crowded/overlapped — nudges the badge down clear of it. Scoped
+   to this specific usage rather than .badge-pixel generally, which is reused
+   elsewhere with its own tuned spacing. */
+.modal-card > .badge-pixel {
+  margin-top: 1rem;
 }
 
 .modal-body {
