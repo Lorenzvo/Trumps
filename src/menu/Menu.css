@@ -14,10 +14,15 @@
   max-width: 20rem;
   /* Flex column with one consistent gap between h2/content/button, instead of each
      child's own ad-hoc margin stacking up unevenly (input had asymmetric top/bottom
-     margin, the button had none at all) — see the .text-input override below. */
+     margin, the button had none at all) — see the .text-input override below.
+     justify-content: center matters because .menu-columns stretches both cards to
+     match the taller one's height (Create's toggle row is taller than Join's single
+     input) — without this, the shorter card's content packs at the top and leaves a
+     dead gap below the button instead of the whole card looking evenly filled. */
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
 }
 
