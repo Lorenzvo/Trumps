@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getClientId } from './firebase/clientId'
-import { getRoomOnce, isSeated } from './firebase/rooms'
+import { getRoomOnce, isSeated, type RoomDoc } from './firebase/rooms'
 import { FourPlayerGame } from './game/FourPlayerGame'
+import { NetworkedFourPlayerGame } from './game/NetworkedFourPlayerGame'
 import { NetworkedTwoPlayerGame } from './game/NetworkedTwoPlayerGame'
 import { TwoPlayerGame } from './game/TwoPlayerGame'
 import { Lobby } from './menu/Lobby'
@@ -26,6 +27,10 @@ function App() {
   const clientId = useMemo(() => getClientId(), [])
   const [screen, setScreen] = useState<Screen>('resolving')
   const [roomCode, setRoomCode] = useState<string | null>(null)
+  // Which networked game screen to render once we're past the lobby — App.tsx has no
+  // live subscription of its own, so this is set either by Lobby reporting it (see
+  // onStart below) or by the mount-time "resume where I left off" resolve() below.
+  const [roomMode, setRoomMode] = useState<RoomDoc['mode']>('2p')
   const initialRoomCode = useMemo(roomCodeFromUrl, [])
 
   // On load (including a refresh, or reopening a closed tab): if we know a room —
@@ -47,6 +52,7 @@ function App() {
         if (cancelled) return
         if (room && isSeated(room, clientId)) {
           setRoomCode(target)
+          setRoomMode(room.mode)
           localStorage.setItem(LAST_ROOM_KEY, target)
           setRoomInUrl(target)
           setScreen(room.status === 'playing' ? 'game' : 'lobby')
@@ -131,11 +137,28 @@ function App() {
   }
 
   if (screen === 'lobby' && roomCode) {
-    return <Lobby roomCode={roomCode} clientId={clientId} onStart={() => setScreen('game')} onLeave={handleLeave} />
+    return (
+      <Lobby
+        roomCode={roomCode}
+        clientId={clientId}
+        onStart={(mode) => {
+          setRoomMode(mode)
+          setScreen('game')
+        }}
+        onLeave={handleLeave}
+      />
+    )
   }
 
   if (roomCode) {
-    return (
+    return roomMode === '4p' ? (
+      <NetworkedFourPlayerGame
+        roomCode={roomCode}
+        clientId={clientId}
+        onLeave={handleLeave}
+        onReturnToLobby={() => setScreen('lobby')}
+      />
+    ) : (
       <NetworkedTwoPlayerGame
         roomCode={roomCode}
         clientId={clientId}

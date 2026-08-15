@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import { canOfferEarlyEnd, computeTarget, isPass, legalCardsToPlay, SUITS, TOTAL_TRICKS } from '../engine'
-import type { Card, Mode, PlayerId, Suit, TeamId } from '../engine'
+import type { Bid, Card, Mode, PlayerId, Suit, TeamId } from '../engine'
 import { CardBack, CardChip, Hand, NeedsRow, SUIT_SYMBOL, TrumpBadge, capitalize, isRedSuit, sortHandForDisplay } from './GameViews'
 import { nextToActInTrick, opposingTeam, teamsOf, teamTricks, type FourPlayerGameState } from './fourPlayerReducer'
 
@@ -442,7 +442,20 @@ export function TrickView4P({
   )
 }
 
-export function RoundEndView4P({ state, onNextRound }: { state: FourPlayerGameState; onNextRound: () => void }) {
+export function RoundEndView4P({
+  state,
+  onNextRound,
+  onReturnToLobby,
+}: {
+  state: FourPlayerGameState
+  /** Local hot-seat only: deals immediately with the same fixed seats. */
+  onNextRound?: () => void
+  /** Networked only: every round in 4P goes back through the lobby regardless of
+   *  manual/dice mode (manual still needs the host to re-pick an opener; dice needs
+   *  the roll) — there's no "same seats, deal immediately" fast path the way 2P has,
+   *  so this is the only continue option networked play offers. */
+  onReturnToLobby?: () => void
+}) {
   const bidWinner = state.winningBid!.playerId
   const bidTeam = state.teams[bidWinner]
   const defendTeam = opposingTeam(state, bidTeam)
@@ -466,9 +479,114 @@ export function RoundEndView4P({ state, onNextRound }: { state: FourPlayerGameSt
         🏆 <TeamLabel team={bidderWon ? bidTeam : defendTeam} /> wins the round!
         {state.outcome === 'bidders_clinched' && ' (ended early)'}
       </p>
-      <button type="button" className="pill-btn primary" onClick={onNextRound}>
-        Next round
-      </button>
+      <div className="button-row">
+        {onNextRound && (
+          <button type="button" className="pill-btn primary" onClick={onNextRound}>
+            Next round
+          </button>
+        )}
+        {onReturnToLobby && (
+          <button type="button" className="pill-btn primary" onClick={onReturnToLobby}>
+            Continue
+          </button>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// --- spectator view ------------------------------------------------------------
+
+/** Read-only "god view" for anyone watching rather than playing — all 4 hands fully
+ *  revealed (same reasoning as 2P's SpectatorView: nothing to hide from a spectator,
+ *  the data's already on the wire either way), no action controls, one phase-
+ *  appropriate status line instead of each phase's full interactive layout. */
+export function SpectatorView4P({ state }: { state: FourPlayerGameState }) {
+  const mode = state.winningBid?.mode ?? 'high'
+  const [teamA, teamB] = teamsOf(state)
+
+  const phaseTitle: Record<FourPlayerGameState['phase'], string> = {
+    bidding: 'Bidding',
+    trump: 'Naming trump',
+    kitty: 'Kitty exchange',
+    trick: `Trick ${state.tricksPlayed} of ${TOTAL_TRICKS}`,
+    'round-end': `Round ${state.round} over`,
+  }
+
+  return (
+    <section className="panel">
+      <h2>👀 Spectating — {phaseTitle[state.phase]}</h2>
+
+      {state.phase === 'bidding' && (
+        <p className="hint">
+          {state.names[state.bidding.order[state.bidding.turnIndex]]}'s turn to bid • highest:{' '}
+          {state.bidding.highestBid
+            ? `${state.bidding.highestBid.number} ${state.bidding.highestBid.mode} (${state.names[state.bidding.highestBid.playerId]})`
+            : 'None'}
+        </p>
+      )}
+      {state.phase === 'trump' && <p className="hint">{state.names[(state.winningBid as Bid).playerId]} is naming trump…</p>}
+      {state.phase === 'kitty' && (
+        <p className="hint">{state.names[(state.winningBid as Bid).playerId]} is exchanging with the kitty…</p>
+      )}
+      {state.phase === 'trick' && state.trumpSuit && (
+        <>
+          <TrumpBadge suit={state.trumpSuit} mode={mode} broken={state.trumpBroken} />
+          {(() => {
+            const bidWinner = (state.winningBid as Bid).playerId
+            const bidTeam = state.teams[bidWinner]
+            const defendTeam = opposingTeam(state, bidTeam)
+            const target = computeTarget((state.winningBid as Bid).number)
+            const bidSideTarget = TOTAL_TRICKS + 1 - target
+            return (
+              <NeedsRow
+                entries={[teamA, teamB].map((team) => ({
+                  name: team,
+                  need: Math.max(0, (team === defendTeam ? target : bidSideTarget) - teamTricks(state, team)),
+                  nameClassName: team === 'Blue' ? 'team-blue' : team === 'Red' ? 'team-red' : undefined,
+                }))}
+              />
+            )
+          })()}
+        </>
+      )}
+      {state.phase === 'round-end' && (
+        <p className="hint">
+          Bid: {state.winningBid?.number} {state.winningBid?.mode} by {state.names[(state.winningBid as Bid).playerId]}
+        </p>
+      )}
+
+      <div className="table">
+        <div className="table-seat away-row">
+          {state.seatOrder.map((p) => (
+            <Hand
+              key={p}
+              name={
+                <>
+                  {state.names[p]} (<TeamLabel team={state.teams[p]} />)
+                </>
+              }
+              hand={sortHandForDisplay(state.hands[p], mode)}
+              revealed
+              count={state.phase === 'trick' ? teamTricks(state, state.teams[p]) : undefined}
+            />
+          ))}
+        </div>
+
+        {state.phase === 'trick' && (
+          <div className="table-center">
+            <div className="trick-area">
+              {state.trick.plays.length === 0 && state.trickLeader && <p>{state.names[state.trickLeader]} leads.</p>}
+              {state.trick.plays.map((p) => (
+                <div key={p.playerId} className="trick-play">
+                  <span className="hint">{state.names[p.playerId]}</span>
+                  <CardChip card={p.card} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   )
 }

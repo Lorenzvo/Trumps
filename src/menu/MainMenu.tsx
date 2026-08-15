@@ -133,14 +133,8 @@ export function MainMenu({
             >
               2 Players
             </button>
-            <button
-              type="button"
-              className={`pill-btn ${mode === '4p' ? 'primary' : ''}`}
-              onClick={() => setMode('4p')}
-              disabled
-              title="4-player rooms are coming soon"
-            >
-              4 Players (soon)
+            <button type="button" className={`pill-btn ${mode === '4p' ? 'primary' : ''}`} onClick={() => setMode('4p')}>
+              4 Players
             </button>
           </div>
           <button type="button" className="pill-btn primary" onClick={handleCreate} disabled={busy}>
