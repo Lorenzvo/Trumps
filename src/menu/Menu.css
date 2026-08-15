@@ -129,6 +129,11 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  /* A seated row can carry a name + HOST badge + "Spectate instead"/"Join as ..."
+     link all at once — on a narrow phone width that's tight enough to overflow the
+     row instead of just looking snug. Wrap instead of forcing one line. */
+  flex-wrap: wrap;
+  text-align: center;
 }
 
 .seat-filled {

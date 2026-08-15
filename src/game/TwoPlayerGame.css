@@ -847,16 +847,28 @@ select:hover {
   padding: 2rem 1.75rem 1.5rem;
   max-width: 26rem;
   width: 100%;
-  /* Fixed height regardless of step content length — the shortest step and the
-     longest step (Tricks, in 2P; Bidding/Tricks in 4P) both fit within this, so the
-     modal never resizes as you click through. A little taller than the tightest fit
-     so the longest step's text doesn't crowd the Next button against the bottom
-     edge. */
-  height: 27rem;
+  /* Sizes to content by default (confirm dialogs: a title, one sentence, two
+     buttons — a fixed tall height here left a large dead gap below them). The
+     Rules modal opts into a fixed height via .modal-card-rules below, since it
+     specifically needs one (see that rule). max-height/overflow-y are still
+     universal: a short viewport — landscape, or a browser chrome/keyboard eating
+     into it — shouldn't get a modal that overflows the screen with no way to
+     reach the bottom, fixed-height or not. */
+  max-height: 90vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   text-align: center;
   animation: modalPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Rules modal only: fixed height regardless of step content length — the shortest
+   step and the longest step (Tricks, in 2P; Bidding/Tricks in 4P) both fit within
+   this, so the modal never resizes as you click through. A little taller than the
+   tightest fit so the longest step's text doesn't crowd the Next button against the
+   bottom edge. */
+.modal-card-rules {
+  height: 27rem;
 }
 
 .modal-close {

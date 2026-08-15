@@ -163,7 +163,7 @@ export function RulesModal({ open, onClose, mode = '2p' }: { open: boolean; onCl
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card modal-card-rules" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close rules">
           ✕
         </button>
