@@ -4,7 +4,7 @@
 // and "Next round" always routes back through the Lobby regardless of manual/dice
 // team mode — see RoundEndView4P.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Card, Mode, PlayerId, Suit } from '../engine'
 import { applyGameAction4P } from '../firebase/gameSync'
 import { endMatch, leaveSpectator, restartMatch4P, returnToLobby, subscribeToRoom, type RoomDoc } from '../firebase/rooms'
@@ -50,6 +50,11 @@ export function NetworkedFourPlayerGame({
   // See the identical field on NetworkedTwoPlayerGame for why this exists — instant
   // local prediction instead of waiting on the Firestore round trip for every action.
   const [pendingGame, setPendingGame] = useState<FourPlayerGameState | null>(null)
+  // See the identical ref on NetworkedTwoPlayerGame — queues real transactions so a
+  // fast double-click (or two logically-different actions back to back) can never
+  // have the second one's tx.get() land before the first one's commit, which is what
+  // let it read pre-first-action state and throw despite both actions being legal.
+  const actionQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => subscribeToRoom(roomCode, setRoom), [roomCode])
 
@@ -178,10 +183,14 @@ export function NetworkedFourPlayerGame({
     } catch {
       // fall through to the real attempt, whose rejection reports the real error
     }
-    applyGameAction4P(roomCode, compute).catch((err) => {
-      setError(err instanceof Error ? err.message : String(err))
-      setPendingGame(null)
-    })
+    // Queued, not fired directly — see actionQueueRef above.
+    actionQueueRef.current = actionQueueRef.current
+      .catch(() => {}) // a previous action's rejection shouldn't skip this one
+      .then(() => applyGameAction4P(roomCode, compute))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err))
+        setPendingGame(null)
+      })
   }
 
   function handleForfeit() {

@@ -5,7 +5,7 @@
 // every action goes through a transaction (see firebase/gameSync.ts) instead of
 // local setState.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Card, Mode, PlayerId, Suit } from '../engine'
 import { applyGameAction } from '../firebase/gameSync'
 import { fromFirestoreGame } from '../firebase/gameSerialize'
@@ -68,6 +68,17 @@ export function NetworkedTwoPlayerGame({
   // changes, whether that's confirming our guess or superseding it with something
   // else (e.g. the opponent acted in between); never left to linger stale.
   const [pendingGame, setPendingGame] = useState<TwoPlayerGameState | null>(null)
+  // Every real transaction this client fires gets chained onto this instead of fired
+  // directly — see `act` below for why: two transactions fired back to back (a fast
+  // draw-then-discard, a double-clicked confirm button, ...) otherwise race, because
+  // the second one's `tx.get()` can land on the server *before* the first one has
+  // committed, reads pre-first-action state, and throws (e.g. "no card to resolve")
+  // even though the first action was itself perfectly legal. Chaining guarantees
+  // transaction N+1 only starts once transaction N has actually settled server-side
+  // (committed or failed), so it always reads the true current state no matter how
+  // fast the clicks come in — the queue is invisible to the UI since the optimistic
+  // `pendingGame` update below still happens instantly, on every click.
+  const actionQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => subscribeToRoom(roomCode, setRoom), [roomCode])
 
@@ -198,10 +209,14 @@ export function NetworkedTwoPlayerGame({
     } catch {
       // fall through to the real attempt
     }
-    applyGameAction(roomCode, compute).catch((err) => {
-      setError(err instanceof Error ? err.message : String(err))
-      setPendingGame(null) // roll back to the authoritative state
-    })
+    // Queued, not fired directly — see actionQueueRef above.
+    actionQueueRef.current = actionQueueRef.current
+      .catch(() => {}) // a previous action's rejection shouldn't skip this one
+      .then(() => applyGameAction(roomCode, compute))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err))
+        setPendingGame(null) // roll back to the authoritative state
+      })
   }
 
   function handleForfeit() {
