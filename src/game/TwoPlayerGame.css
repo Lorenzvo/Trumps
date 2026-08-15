@@ -874,6 +874,15 @@ select:hover {
   gap: 0.5rem;
 }
 
+/* justify-content: center on .modal-content only pushes the title down when the
+   group has room to spare — for the longer steps (Bidding, Trump, Tricks) the body
+   text already fills most of the flex space, so centering barely moves anything and
+   the title still sits right under the RULES x/y badge. This margin nudges it down
+   a fixed amount regardless of how much room the body leaves. */
+.modal-content h2 {
+  margin-top: 1.25rem;
+}
+
 .modal-body {
   margin: 0.75rem 0 1rem;
   line-height: 1.55;
