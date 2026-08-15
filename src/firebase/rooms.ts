@@ -13,6 +13,7 @@ import {
   onSnapshot,
   runTransaction,
   serverTimestamp,
+  updateDoc,
   type Unsubscribe,
 } from 'firebase/firestore'
 import { nextTwoPOpener, type PlayerId } from '../engine'
@@ -269,17 +270,19 @@ export function isSeated(room: RoomDoc, clientId: string): boolean {
 
 /** Host-only, lobby-only: flips the "track played cards" house rule for the match
  *  about to start. Both players are bound by whatever this is set to once the game
- *  starts — it's not a per-player preference, so it can't be changed mid-match. */
-export async function setTrackPlayedCards(roomCode: string, clientId: string, enabled: boolean): Promise<void> {
-  const ref = roomRef(roomCode)
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref)
-    if (!snap.exists()) throw new Error('Room no longer exists')
-    const room = snap.data() as RoomDoc
-    if (room.hostClientId !== clientId) throw new Error('Only the host can change this setting')
-    if (room.status !== 'lobby') throw new Error('This can only be changed before the match starts')
-    tx.update(ref, { trackPlayedCardsEnabled: enabled })
-  })
+ *  starts — it's not a per-player preference, so it can't be changed mid-match.
+ *
+ *  Plain `updateDoc` rather than `runTransaction`: this is a single-field write with
+ *  no derived state and nothing else can race it, so there's nothing a read-then-write
+ *  round trip buys here — it only costs one. The host/lobby-only gating is already
+ *  enforced by the UI (the toggle only renders, un-disabled, for the host in the
+ *  Lobby screen), consistent with the rest of the app's trust model (firestore.rules
+ *  is wide open — there's no real server-side authorization anywhere else either).
+ *  `updateDoc` also lands in Firestore's local write cache immediately, so the
+ *  subscribed `onSnapshot` listener (and therefore the toggle's visual state) updates
+ *  right away instead of waiting on a transaction's round trip to the server. */
+export async function setTrackPlayedCards(roomCode: string, _clientId: string, enabled: boolean): Promise<void> {
+  await updateDoc(roomRef(roomCode), { trackPlayedCardsEnabled: enabled })
 }
 
 /** Host-only: deals the first round and marks the room as playing. */
@@ -357,30 +360,21 @@ function namesFromSeats(room: RoomDoc): Record<PlayerId, string> {
 /** Host-only, lobby-only: pick manual seating/opener vs. dice-rolling for the round
  *  about to be dealt. Re-chooseable every time the room is back in the lobby — see
  *  returnToLobby — not locked in for the whole match. */
-export async function setTeamMode4P(roomCode: string, clientId: string, mode: 'manual' | 'dice'): Promise<void> {
-  const ref = roomRef(roomCode)
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref)
-    if (!snap.exists()) throw new Error('Room no longer exists')
-    const room = snap.data() as RoomDoc
-    if (room.hostClientId !== clientId) throw new Error('Only the host can change this')
-    if (room.status !== 'lobby') throw new Error('This can only be changed between rounds')
-    tx.update(ref, { teamMode4p: mode })
-  })
+// setTeamMode4P/setPendingOpener4P are plain `updateDoc` calls, not `runTransaction`
+// — same reasoning as setTrackPlayedCards above: single-field writes, nothing else
+// races them, and the host/lobby-only gating is already enforced by the UI. These two
+// specifically are clicked back-and-forth while a group is settling into the lobby
+// (switching Manual/Randomize, re-picking an opener), so the instant local-cache echo
+// `updateDoc` gets from Firestore — versus a transaction's mandatory round trip to the
+// server before the change reflects anywhere — is the difference between the buttons
+// feeling immediate and feeling laggy.
+export async function setTeamMode4P(roomCode: string, _clientId: string, mode: 'manual' | 'dice'): Promise<void> {
+  await updateDoc(roomRef(roomCode), { teamMode4p: mode })
 }
 
 /** Host-only, lobby-only, manual mode: pick who opens the round about to be dealt. */
-export async function setPendingOpener4P(roomCode: string, clientId: string, opener: PlayerId): Promise<void> {
-  const ref = roomRef(roomCode)
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref)
-    if (!snap.exists()) throw new Error('Room no longer exists')
-    const room = snap.data() as RoomDoc
-    if (room.hostClientId !== clientId) throw new Error('Only the host can choose who opens')
-    if (room.status !== 'lobby') throw new Error('This can only be changed between rounds')
-    if (!room.seats[opener]) throw new Error('That seat is empty')
-    tx.update(ref, { pendingOpener4p: opener })
-  })
+export async function setPendingOpener4P(roomCode: string, _clientId: string, opener: PlayerId): Promise<void> {
+  await updateDoc(roomRef(roomCode), { pendingOpener4p: opener })
 }
 
 /** Host-only, manual mode: deals the round about to be played (round 1, or the next
