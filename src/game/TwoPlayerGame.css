@@ -620,6 +620,14 @@ select:hover {
   justify-content: center;
 }
 
+/* Static explainer at the top of the draw box, present in every sub-state (waiting /
+   draw button / pending decision) — see DrawPhaseView for why it moved out of the
+   pending-decision-only block it used to live in. */
+.draw-rules {
+  max-width: 28rem;
+  margin: 0 auto 0.75rem;
+}
+
 /* Draw phase: pile info and the keep/discard decision sit side by side on desktop
    (more horizontal, less tall) and stack on narrow/mobile screens. */
 .draw-center {

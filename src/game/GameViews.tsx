@@ -327,6 +327,15 @@ export function DrawPhaseView({
         </div>
 
         <div className="table-center table-center-action">
+          {/* Static regardless of phase state (waiting / draw button / pending decision)
+              so this never changes the box's height — it used to only render once a
+              card was pending, which was the actual cause of the box resizing mid-phase. */}
+          <p className="hint draw-rules">
+            <strong>Keep:</strong> Add the current card to your hand and discard the next card.
+            <br />
+            <strong>Discard:</strong> Discard the current card and add the next card to your hand.
+          </p>
+
           <div className="draw-center">
             <div className="draw-center-pile">
               <p className="badge-pixel">PILE · {pileSize} LEFT</p>
@@ -359,12 +368,6 @@ export function DrawPhaseView({
                       Discard
                     </button>
                   </div>
-                  <p className="hint">
-                    <strong>Keep:</strong> keep the current card and discard the next one without seeing it.
-                  </p>
-                  <p className="hint">
-                    <strong>Discard:</strong> discard the current card and keep the next one without seeing it.
-                  </p>
                 </div>
               )}
             </div>

@@ -59,12 +59,25 @@ export function NetworkedTwoPlayerGame({
   // setting (room.trackPlayedCardsEnabled). This is just whether the panel happens
   // to be open right now — purely local, each player opens/closes their own view.
   const [trackPlayed, setTrackPlayed] = useState(false)
+  // Every action (draw, bid, play a card, ...) goes through a full Firestore
+  // transaction before the subscription pushes the new state back down — on a real
+  // connection that's a couple hundred ms minimum, which reads as laggy for something
+  // as repetitive as the draw phase (up to 24 clicks a round). This holds a locally-
+  // predicted next state so the UI updates the instant you click, not once the round
+  // trip completes — see `act` below. Cleared as soon as the real subscription state
+  // changes, whether that's confirming our guess or superseding it with something
+  // else (e.g. the opponent acted in between); never left to linger stale.
+  const [pendingGame, setPendingGame] = useState<TwoPlayerGameState | null>(null)
 
   useEffect(() => subscribeToRoom(roomCode, setRoom), [roomCode])
 
   useEffect(() => {
     if (room?.status === 'lobby') onReturnToLobby()
   }, [room?.status, onReturnToLobby])
+
+  useEffect(() => {
+    setPendingGame(null)
+  }, [room?.game])
 
   if (room === undefined) {
     return (
@@ -171,12 +184,23 @@ export function NetworkedTwoPlayerGame({
     )
   }
 
-  const game = fromFirestoreGame(room.game)
+  const game = pendingGame ?? fromFirestoreGame(room.game)
 
   function act(compute: (s: TwoPlayerGameState) => TwoPlayerGameState) {
     setError(null)
+    try {
+      // Predict the result against whatever's currently on screen (which may itself
+      // already be an unconfirmed prediction, for rapid back-to-back actions) and
+      // show it immediately. If this throws (illegal move), skip the optimistic
+      // update and let the real transaction's rejection below report it — no need
+      // to duplicate the reducer's own validation here.
+      setPendingGame(compute(game))
+    } catch {
+      // fall through to the real attempt
+    }
     applyGameAction(roomCode, compute).catch((err) => {
       setError(err instanceof Error ? err.message : String(err))
+      setPendingGame(null) // roll back to the authoritative state
     })
   }
 
