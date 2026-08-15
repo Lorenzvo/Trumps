@@ -50,23 +50,39 @@ the exact same `applyX` functions, just fed by different state sources.
 `src/game/fourPlayerReducer.ts` + `GameViews4P.tsx` are the 4-seat counterpart, same
 shape (no draw phase, per spec; "sides" are teams of 2, so trick counts aggregate by
 team via `teamTricks`). `FourPlayerGame.tsx` is a local hot-seat wrapper, same
-pass-and-play model as 2P's. Reachable from the main menu's practice-mode links.
-**Not networked yet** — no 4P rooms/Firestore wiring, that's the next step.
+pass-and-play model as 2P's, reachable from the main menu's practice-mode links.
+`NetworkedFourPlayerGame.tsx` is the networked counterpart, mirroring
+`NetworkedTwoPlayerGame.tsx`'s contract.
 
 ## Multiplayer
 
 `src/firebase/` holds the Firestore layer:
 - `config.ts` — init, from `.env.local` (copy `.env.example`)
 - `clientId.ts` — per-browser identity, no accounts
-- `rooms.ts` — create/join/subscribe/start; `startGame` deals the first round
-- `gameSync.ts` — `applyGameAction`, wraps a game-state transition in a Firestore
-  transaction so concurrent writes can't clobber each other
+- `rooms.ts` — create/join/subscribe/start (`startGame`/`dealFourPRound` deal the first
+  round); also team/opener selection and dice-roll resolution for 4P (`setTeamMode4P`,
+  `setPendingOpener4P`, `startDiceRoll4P`, `rollDice4P`)
+- `gameSync.ts` — `applyGameAction`/`applyGameAction4P`, wraps a game-state transition
+  in a Firestore transaction so concurrent writes can't clobber each other
 - `firestore.rules` — paste into the Firebase console's Rules tab manually (no CLI
   deploy wired up yet)
 
-`src/menu/` is the room UI: `MainMenu` (name, create-or-join, or a practice-mode
-shortcut) and `Lobby` (live seat list, host-gated Start button, shareable room code via
-a `?room=` URL param — opening that link jumps straight to a "join this room" prompt).
+`src/menu/` is the room UI: `MainMenu` (name, create-or-join 2P or 4P, or a
+practice-mode shortcut) and `Lobby` (live seat list, host-gated Start button, shareable
+room code via a `?room=` URL param — opening that link jumps straight to a "join this
+room" prompt). Anyone joining a full room becomes a spectator instead (read-only
+god's-eye view via `SpectatorView`/`SpectatorView4P`, all hands revealed since there's
+nothing to hide from someone already watching); spectators can claim an open seat if
+one frees up, or step down from a seat back to spectating.
+
+**4P-specific lobby options:** team assignment is either **Manual** (host picks who
+opens each round; teams are fixed by seat — `blue1`/`blue2` vs `red1`/`red2`) or
+**Randomize**, where every seated player rolls a 1–10 die (`rollDice4P`); once all four
+rolls are in and distinct, the room reseats by rank (highest opens; 1st &amp; 3rd end up
+teamed, 2nd &amp; 4th end up teamed) and deals straight in — ties just re-roll. The host
+re-picks Manual vs. Randomize fresh every time the room returns to the lobby between
+rounds. A host-toggleable "Track played cards" setting (2P and 4P both) lets everyone
+open a running list of cards already played this round, grouped by suit.
 
 **Reconnection:** your room is remembered (`localStorage`, keyed off your stable
 per-browser `clientId`) and mirrored into the URL's `?room=` param. Refreshing,
@@ -101,13 +117,14 @@ npm run lint         # oxlint
 
 ## Status
 
-Engine core is built and tested (83 tests). Menu → create/join room → live lobby →
-networked 2P gameplay is wired end-to-end through Firestore: draw phase, bidding,
-trump, kitty exchange, tricks, round end, next round all read/write the room's synced
-game document, gated so only the player whose turn it is can act and only your own
-hand ever renders face-up. Local hot-seat "practice mode" exists for both 2P and 4P,
-sharing the same engine/views as the real thing. 4P is local-only so far (no
-rooms/Firestore); pixel-art sprites are still untouched.
+Engine core is built and tested (84 tests). Menu → create/join room → live lobby →
+networked gameplay is wired end-to-end through Firestore for **both 2P and 4P**: draw
+phase (2P) / dice-roll team randomization (4P), bidding, trump, kitty exchange, tricks,
+round end, next round all read/write the room's synced game document, gated so only the
+player whose turn it is can act and only your own hand ever renders face-up.
+Spectating, the played-cards toggle, forfeit, and restart all work the same way across
+both modes. Local hot-seat "practice mode" exists for both 2P and 4P too, sharing the
+same engine/views as the real thing. Pixel-art sprites are still untouched.
 
 Two playtesting-driven polish passes done since the initial visual pass — see git log
 for specifics, but notably: the trump/mode/broken indicator is three separate boxes
@@ -120,11 +137,9 @@ advance to the next trick, everyone else sees a waiting message.
 
 ### Known gaps / backlog
 
-- **4P networking:** the engine/state/views are done and tested (see
-  `fourPlayerReducer.ts` / `GameViews4P.tsx`), but there's no room support yet —
-  `createRoom` still rejects `'4p'`. Needs: 4-seat lobby, host-assigned team seating
-  (`validateFourPSeating`/`buildFourPBidOrder` already exist for this), and a
-  `NetworkedFourPlayerGame` mirroring the 2P networked wrapper.
+- **Mobile layout, end-to-end on real devices:** verified on desktop viewports across
+  2P and 4P (lobby, dice-roll screen, all game phases); not yet walked through on an
+  actual phone.
 - **Real hand privacy:** Firestore rules are wide open (`allow read, write: if true`
   on `rooms` — see `firestore.rules`), no per-seat auth. The UI never renders your
   opponent's (or in 4P, your partner's kitty view) hand, but the full room document is
