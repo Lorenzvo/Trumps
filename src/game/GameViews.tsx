@@ -82,15 +82,15 @@ export function TrumpBadge({ suit, mode, broken }: { suit: Suit; mode: Mode; bro
 const RULE_STEPS: Array<{ title: string; body: string }> = [
   {
     title: 'Draw',
-    body: 'Alternate turns drawing from the middle pile. Keep the card (the next card auto-discards unseen) or discard it (you\'re forced to keep the next card, unseen) — either way you end up with 12 cards.',
+    body: 'Alternate turns drawing from the middle pile. Keep the card (the next card auto-discards unseen) or discard it (you\'re forced to keep the next card) — either way you end up with 12 cards.',
   },
   {
     title: 'Bidding',
-    body: 'Whoever drew first opens (can\'t pass). A bid is a number 2-7 plus High or Low — it sets how many tricks (8 minus the bid) the opponent needs to win. Higher numbers beat lower ones; ties go to Low. Each player gets up to 2 bids: raise or pass.',
+    body: 'Whoever drew first opens the bid. A bid is a number from 2-7 plus High or Low. It sets how many tricks (8 minus the bid) the opponent needs to win. Higher numbers beat lower ones; ties go to Low. Each player gets up to 2 bids.',
   },
   {
     title: 'Trump',
-    body: 'Named blind, before seeing the kitty — unless the opener wins on their very first call, in which case they get to peek at the kitty first.',
+    body: 'The trump is the strongest suit in the game. The player that won the bid chooses the trump suit before seeing the kitty, unless the opener wins on their very first call, in which case they get to peek at the kitty first.',
   },
   {
     title: 'Kitty exchange',
@@ -98,7 +98,7 @@ const RULE_STEPS: Array<{ title: string; body: string }> = [
   },
   {
     title: 'Tricks',
-    body: 'Follow suit if you can. If you\'re void, you may play trump (once it\'s been broken) or any other card — trump is never forced. Highest trump wins the trick; otherwise the best card of the led suit wins (High or Low, per the bid).',
+    body: 'You must play the leading suit. If you don\'t have it, you may play the trump suit or discard any other card. Playing the trump suit allows players to start with the trump suit for the rest of the game. Highest trump wins the trick; otherwise the best card of the led suit wins (High or Low, per the bid).',
   },
   {
     title: 'Winning the round',
@@ -128,8 +128,10 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
         <p className="badge-pixel">
           RULES {step + 1}/{RULE_STEPS.length}
         </p>
-        <h2>{current.title}</h2>
-        <p className="modal-body">{current.body}</p>
+        <div className="modal-content">
+          <h2>{current.title}</h2>
+          <p className="modal-body">{current.body}</p>
+        </div>
         <div className="modal-dots">
           {RULE_STEPS.map((s, i) => (
             <span key={s.title} className={`dot ${i === step ? 'active' : ''}`} />
@@ -889,11 +891,13 @@ export function RoundEndView({
     <section className="panel result-panel">
       <h2>Round {state.round} over</h2>
       <p>
-        Bid: {state.winningBid?.number} {state.winningBid?.mode} by {state.names[bidWinner]} — {state.names[defender]}{' '}
-        needed {target} tricks.
+        Bid: {state.winningBid?.number} {state.winningBid?.mode} by {state.names[bidWinner]}
       </p>
       <p>
-        Final tricks — {state.names[bidWinner]}: <strong>{state.trickCounts[bidWinner]}</strong> &nbsp;|&nbsp;{' '}
+        {state.names[defender]} needed {target} tricks.
+      </p>
+      <p>
+        Final Score: {state.names[bidWinner]}: <strong>{state.trickCounts[bidWinner]}</strong> &nbsp;|&nbsp;{' '}
         {state.names[defender]}: <strong>{state.trickCounts[defender]}</strong>
       </p>
       <p className="result">

@@ -861,10 +861,20 @@ select:hover {
   color: var(--ink);
 }
 
-.modal-body {
+/* Title + body centered together as one group in the space above the dots/buttons —
+   so for a short step the title moves down toward the body instead of staying
+   anchored at the top with the (centered-alone) body floating in a gap below it. A
+   long step (Tricks) fills most of the space either way, so grouping barely changes
+   its look. */
+.modal-content {
   flex: 1;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.modal-body {
   margin: 0.75rem 0 1rem;
   line-height: 1.55;
 }
