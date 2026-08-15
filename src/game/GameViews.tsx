@@ -106,8 +106,39 @@ const RULE_STEPS: Array<{ title: string; body: string }> = [
   },
 ]
 
-export function RulesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+// 4P has no draw phase (hands are dealt straight away) and bidding is a single pass
+// around the table rather than a 2P-style raise-or-pass war — different enough from
+// 2P's mechanics that reusing RULE_STEPS verbatim would actively mislead 4P players.
+const RULE_STEPS_4P: Array<{ title: string; body: string }> = [
+  {
+    title: 'Deal',
+    body: 'Each player is dealt 12 cards from a shuffled 52-card deck — 4 cards are set aside as the kitty first. No draw phase like 2P; hands are dealt straight away.',
+  },
+  {
+    title: 'Bidding',
+    body: 'The opener bids first (can\'t pass); each player then bids once as it goes around the table. A bid is a number 2-7 plus High or Low. Whoever ends up highest wins, and it sets how many tricks (8 minus the bid) the other team needs to win.',
+  },
+  {
+    title: 'Trump',
+    body: 'The trump is the strongest suit in the game. The bid winner chooses it before seeing the kitty — even their partner doesn\'t see this — unless the opener wins on their very first call, in which case they peek at the kitty first.',
+  },
+  {
+    title: 'Kitty exchange',
+    body: 'The bid winner may swap any number of the 4 kitty cards into their hand, discarding the same number back out — private, not even their partner sees it.',
+  },
+  {
+    title: 'Tricks',
+    body: 'You must play the leading suit. If you don\'t have it, you may play the trump suit or discard any other card. Playing the trump suit allows players to lead with the trump suit for the rest of the game. Highest trump wins the trick; otherwise the best card of the led suit wins (High or Low, per the bid).',
+  },
+  {
+    title: 'Winning the round',
+    body: 'Tricks won by either partner count toward their team\'s total. The bidding team wins if the other team never reaches their target trick count across all 12 tricks; the other team wins the instant they hit it.',
+  },
+]
+
+export function RulesModal({ open, onClose, mode = '2p' }: { open: boolean; onClose: () => void; mode?: '2p' | '4p' }) {
   const [step, setStep] = useState(0)
+  const steps = mode === '4p' ? RULE_STEPS_4P : RULE_STEPS
 
   useEffect(() => {
     if (open) setStep(0)
@@ -115,9 +146,9 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
 
   if (!open) return null
 
-  const current = RULE_STEPS[step]
+  const current = steps[step]
   const isFirst = step === 0
-  const isLast = step === RULE_STEPS.length - 1
+  const isLast = step === steps.length - 1
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -126,14 +157,14 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
           ✕
         </button>
         <p className="badge-pixel">
-          RULES {step + 1}/{RULE_STEPS.length}
+          RULES {step + 1}/{steps.length}
         </p>
         <div className="modal-content">
           <h2>{current.title}</h2>
           <p className="modal-body">{current.body}</p>
         </div>
         <div className="modal-dots">
-          {RULE_STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <span key={s.title} className={`dot ${i === step ? 'active' : ''}`} />
           ))}
         </div>

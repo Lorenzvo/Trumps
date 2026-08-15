@@ -79,7 +79,7 @@ export function BiddingView4P({
   const isOpeningBid = state.bidding.turnIndex === 0
 
   return (
-    <section className="panel">
+    <section className="panel panel-table">
       <h2>Bidding</h2>
       <p className="turn-banner-inline">{state.names[current]}'s turn to bid</p>
       <p>
@@ -161,7 +161,7 @@ export function TrumpView4P({
   const winner = state.winningBid!.playerId
   const canAct = viewerPlayerId === winner
   return (
-    <section className="panel">
+    <section className="panel panel-table">
       <h2>Name trump</h2>
       <p>
         {state.names[winner]} ({state.teams[winner]}) won the bid:{' '}
@@ -255,8 +255,8 @@ export function KittyView4P({
   return (
     <section className="panel">
       <h2>Kitty exchange</h2>
-      <p className="hint">Swap any number of kitty cards into your hand — discard the same number back out.</p>
-      <h3>Kitty — click to take</h3>
+      <p className="hint">Swap any number of kitty cards into your hand.</p>
+      <h3>Kitty</h3>
       <div className="hand-cards">
         {state.kitty.map((card, i) => (
           <CardChip
@@ -268,9 +268,7 @@ export function KittyView4P({
           />
         ))}
       </div>
-      <h3>
-        Your hand — click to discard ({discardIds.size} selected, need {takeIds.size})
-      </h3>
+      <h3>Your hand</h3>
       <div className="hand-cards">
         {hand.map((card, i) => (
           <CardChip
@@ -283,20 +281,22 @@ export function KittyView4P({
         ))}
       </div>
       <div className="button-row">
-        <button
-          type="button"
-          className="pill-btn primary"
-          disabled={!countsMatch}
-          onClick={() =>
-            onConfirm(
-              hand.filter((c) => discardIds.has(cardKey(c))),
-              state.kitty.filter((c) => takeIds.has(cardKey(c))),
-            )
-          }
-        >
-          Confirm exchange
-        </button>
-        {!countsMatch && <span className="hint"> Selected counts must match.</span>}
+        {countsMatch ? (
+          <button
+            type="button"
+            className="pill-btn primary"
+            onClick={() =>
+              onConfirm(
+                hand.filter((c) => discardIds.has(cardKey(c))),
+                state.kitty.filter((c) => takeIds.has(cardKey(c))),
+              )
+            }
+          >
+            Confirm exchange
+          </button>
+        ) : (
+          <span className="hint">Selected counts must match.</span>
+        )}
       </div>
     </section>
   )
@@ -332,7 +332,7 @@ export function TrickView4P({
   const canContinue = trickComplete && viewerPlayerId === lastWinner
 
   return (
-    <section className="panel">
+    <section className="panel panel-table">
       <h2 className="trick-progress">
         Trick {state.tricksPlayed} of {TOTAL_TRICKS}
       </h2>
@@ -423,11 +423,13 @@ export function RoundEndView4P({ state, onNextRound }: { state: FourPlayerGameSt
     <section className="panel result-panel">
       <h2>Round {state.round} over</h2>
       <p>
-        Bid: {state.winningBid!.number} {state.winningBid!.mode} by {state.names[bidWinner]} ({bidTeam}) —{' '}
+        Bid: {state.winningBid!.number} {state.winningBid!.mode} by {state.names[bidWinner]} ({bidTeam})
+      </p>
+      <p>
         {defendTeam} needed {target} tricks.
       </p>
       <p>
-        Final tricks — {bidTeam}: <strong>{teamTricks(state, bidTeam)}</strong> &nbsp;|&nbsp; {defendTeam}:{' '}
+        Final Score: {bidTeam}: <strong>{teamTricks(state, bidTeam)}</strong> &nbsp;|&nbsp; {defendTeam}:{' '}
         <strong>{teamTricks(state, defendTeam)}</strong>
       </p>
       <p className="result">

@@ -70,7 +70,7 @@ export function FourPlayerGame() {
         </p>
       </header>
 
-      <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} mode="4p" />
 
       {error && <p className="error">{error}</p>}
 
