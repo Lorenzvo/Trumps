@@ -594,20 +594,22 @@ export function KittyView({
         ))}
       </div>
       <div className="button-row">
-        <button
-          type="button"
-          className="pill-btn primary"
-          disabled={!countsMatch}
-          onClick={() =>
-            onConfirm(
-              hand.filter((c) => discardIds.has(cardId(c))),
-              state.kitty.filter((c) => takeIds.has(cardId(c))),
-            )
-          }
-        >
-          Confirm exchange
-        </button>
-        {!countsMatch && <span className="hint"> Selected counts must match.</span>}
+        {countsMatch ? (
+          <button
+            type="button"
+            className="pill-btn primary"
+            onClick={() =>
+              onConfirm(
+                hand.filter((c) => discardIds.has(cardId(c))),
+                state.kitty.filter((c) => takeIds.has(cardId(c))),
+              )
+            }
+          >
+            Confirm exchange
+          </button>
+        ) : (
+          <span className="hint">Selected counts must match.</span>
+        )}
       </div>
     </section>
   )
