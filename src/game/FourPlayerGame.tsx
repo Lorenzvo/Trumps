@@ -2,7 +2,7 @@
 // extended to 4 seats. viewerPlayerId tracks whoever can currently act each render.
 
 import { useState } from 'react'
-import type { Card, Mode, PlayerId, Suit, TeamId } from '../engine'
+import type { Card, Mode, PlayerId, Suit } from '../engine'
 import { RulesModal } from './GameViews'
 import { BiddingView4P, KittyView4P, RoundEndView4P, TrickView4P, TrumpView4P } from './GameViews4P'
 import {
@@ -14,13 +14,15 @@ import {
   applyNextRound,
   applyPass,
   applyPlayCard,
+  FOUR_P_SEAT_ORDER,
+  FOUR_P_TEAMS,
   nextToActInTrick,
   startFourPlayerRound,
   type FourPlayerGameState,
 } from './fourPlayerReducer'
 
-const SEAT_ORDER: readonly [PlayerId, PlayerId, PlayerId, PlayerId] = ['blue1', 'red1', 'blue2', 'red2']
-const TEAMS: Record<PlayerId, TeamId> = { blue1: 'Blue', red1: 'Red', blue2: 'Blue', red2: 'Red' }
+const SEAT_ORDER = FOUR_P_SEAT_ORDER
+const TEAMS = FOUR_P_TEAMS
 const NAMES: Record<PlayerId, string> = { blue1: 'Blue 1', red1: 'Red 1', blue2: 'Blue 2', red2: 'Red 2' }
 
 /** Who's "near" (revealed) right now, for the pass-and-play hot-seat experience. */

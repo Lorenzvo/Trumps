@@ -875,8 +875,20 @@ export function SpectatorView({ state }: { state: TwoPlayerGameState }) {
 /** Every card played so far this round (completed tricks + the trick in progress),
  *  grouped by suit and sorted best-to-worst within each suit — an opt-in memory aid
  *  for tracking what's already out. Resets every round along with trickHistory, same
- *  as the rest of trick-play state; nothing here persists across rounds. */
-export function PlayedCardsPanel({ state }: { state: TwoPlayerGameState }) {
+ *  as the rest of trick-play state; nothing here persists across rounds.
+ *
+ *  Takes a minimal structural slice rather than TwoPlayerGameState specifically —
+ *  FourPlayerGameState has the same three fields with the same shapes, so this
+ *  works for both without a separate 4P copy. */
+export function PlayedCardsPanel({
+  state,
+}: {
+  state: {
+    winningBid: Bid | null
+    trickHistory: Array<{ plays: Array<{ card: Card }> }>
+    trick: { plays: Array<{ card: Card }> }
+  }
+}) {
   const mode = state.winningBid?.mode ?? 'high'
   const played = [...state.trickHistory.flatMap((t) => t.plays.map((p) => p.card)), ...state.trick.plays.map((p) => p.card)]
   const sorted = sortHandForDisplay(played, mode)

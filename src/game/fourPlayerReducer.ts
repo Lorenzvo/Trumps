@@ -40,6 +40,13 @@ import type {
 
 export type FourPSeatOrder = readonly [PlayerId, PlayerId, PlayerId, PlayerId]
 
+/** The only seat layout 4P actually supports — teams are baked into seat identity
+ *  (blue1/blue2 vs red1/red2), not tracked independently. Shared by local hot-seat
+ *  (FourPlayerGame.tsx) and networked (rooms.ts) so team assignment can't drift
+ *  between the two. */
+export const FOUR_P_SEAT_ORDER: FourPSeatOrder = ['blue1', 'red1', 'blue2', 'red2']
+export const FOUR_P_TEAMS: Record<PlayerId, TeamId> = { blue1: 'Blue', red1: 'Red', blue2: 'Blue', red2: 'Red' }
+
 export type FourPlayerPhase = 'bidding' | 'trump' | 'kitty' | 'trick' | 'round-end'
 
 export interface FourPlayerGameState {

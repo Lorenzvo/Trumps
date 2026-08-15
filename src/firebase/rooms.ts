@@ -16,6 +16,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { nextTwoPOpener, type PlayerId } from '../engine'
+import { FOUR_P_SEAT_ORDER, FOUR_P_TEAMS, startFourPlayerRound, type FourPlayerGameState } from '../game/fourPlayerReducer'
 import { PLAYERS, startTwoPlayerRound } from '../game/twoPlayerReducer'
 import { db } from './config'
 import { fromFirestoreGame, toFirestoreGame, type FirestoreGameState } from './gameSerialize'
@@ -58,10 +59,29 @@ export interface RoomDoc {
   // — there's no server-side hand-hiding at all today), so this is just bookkeeping
   // for "who's watching" and the seat-swap UI, not an access-control mechanism.
   spectators?: Record<string, Seat>
+
+  // --- 4P only, below. FourPlayerGameState needs no Firestore-safe transform (unlike
+  // 2P's `game` — see gameSerialize.ts — it has no tuple-of-arrays fields), so it's
+  // stored directly rather than through a serialize/deserialize pair. ---
+  game4p?: FourPlayerGameState | null
+  // Host's choice, changeable between rounds (status === 'lobby'): pick seats/opener
+  // by hand, or have the dice decide both each round. Defaults to 'manual' when unset.
+  teamMode4p?: 'manual' | 'dice'
+  // Manual mode only: the host's pick of who opens the round about to be dealt.
+  // Cleared after each deal — has to be re-picked (or re-rolled) every round, per
+  // spec: this isn't locked in for the whole match.
+  pendingOpener4p?: PlayerId | null
+  // True while a dice-roll is in progress — Lobby shows the roll screen instead of
+  // the normal seat list while this is set. Cleared once all 4 have rolled distinct
+  // values and the round is dealt.
+  diceRollActive4p?: boolean
+  // clientId -> this round's roll (1-10). Entries for tied clientIds get cleared so
+  // just they re-roll; everyone else's stands.
+  diceRolls4p?: Record<string, number>
 }
 
 function seatOrderFor(mode: GameMode): string[] {
-  return mode === '2p' ? ['p1', 'p2'] : ['blue1', 'red1', 'blue2', 'red2']
+  return mode === '2p' ? [...PLAYERS] : [...FOUR_P_SEAT_ORDER]
 }
 
 function generateCode(): string {
@@ -74,10 +94,6 @@ function roomRef(roomCode: string): DocumentReference {
 
 /** Creates a new room with the host in the first seat. Retries on room-code collision. */
 export async function createRoom(mode: GameMode, hostName: string, hostClientId: string): Promise<string> {
-  if (mode === '4p') {
-    throw new Error('4-player rooms are not wired up yet — 2P only for now')
-  }
-
   for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
     const code = generateCode()
     const ref = roomRef(code)
@@ -95,6 +111,7 @@ export async function createRoom(mode: GameMode, hostName: string, hostClientId:
           createdAt: serverTimestamp(),
           seats,
           trackPlayedCardsEnabled: false,
+          ...(mode === '4p' ? { teamMode4p: 'manual' as const } : {}),
         }
         tx.set(ref, room)
       })
@@ -323,5 +340,171 @@ export async function restartMatch(roomCode: string): Promise<void> {
     }
     const game = toFirestoreGame(startTwoPlayerRound(1, 'p1', names))
     tx.update(ref, { status: 'playing', game, endedBy: null })
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 4P — team assignment, dice-roll turn order, dealing. endMatch/returnToLobby/
+// leaveSpectator/becomeSpectator/claimSeat above are already mode-generic and
+// used as-is for 4P too; only the parts that touch TwoPlayerGameState specifically
+// (startGame/continueToNextRound/restartMatch) needed 4P counterparts.
+// ---------------------------------------------------------------------------
+
+function namesFromSeats(room: RoomDoc): Record<PlayerId, string> {
+  return Object.fromEntries(FOUR_P_SEAT_ORDER.map((s) => [s, room.seats[s]!.name])) as Record<PlayerId, string>
+}
+
+/** Host-only, lobby-only: pick manual seating/opener vs. dice-rolling for the round
+ *  about to be dealt. Re-chooseable every time the room is back in the lobby — see
+ *  returnToLobby — not locked in for the whole match. */
+export async function setTeamMode4P(roomCode: string, clientId: string, mode: 'manual' | 'dice'): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.hostClientId !== clientId) throw new Error('Only the host can change this')
+    if (room.status !== 'lobby') throw new Error('This can only be changed between rounds')
+    tx.update(ref, { teamMode4p: mode })
+  })
+}
+
+/** Host-only, lobby-only, manual mode: pick who opens the round about to be dealt. */
+export async function setPendingOpener4P(roomCode: string, clientId: string, opener: PlayerId): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.hostClientId !== clientId) throw new Error('Only the host can choose who opens')
+    if (room.status !== 'lobby') throw new Error('This can only be changed between rounds')
+    if (!room.seats[opener]) throw new Error('That seat is empty')
+    tx.update(ref, { pendingOpener4p: opener })
+  })
+}
+
+/** Host-only, manual mode: deals the round about to be played (round 1, or the next
+ *  one after returnToLobby) using the current seats and the host's chosen opener. */
+export async function dealFourPRound(roomCode: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.mode !== '4p') throw new Error('Only 4P rooms use this')
+    const filled = FOUR_P_SEAT_ORDER.every((s) => room.seats[s])
+    if (!filled) throw new Error('Waiting for all 4 seats to fill')
+    const opener = room.pendingOpener4p
+    if (!opener || !FOUR_P_SEAT_ORDER.includes(opener)) throw new Error('Choose who opens before starting')
+
+    const prevRound = room.game4p?.round ?? 0
+    const game4p = startFourPlayerRound(prevRound + 1, FOUR_P_SEAT_ORDER, FOUR_P_TEAMS, namesFromSeats(room), opener)
+    tx.update(ref, { status: 'playing', game4p, pendingOpener4p: deleteField() })
+  })
+}
+
+/** Host-only, lobby-only: kicks off a dice roll for the round about to be dealt —
+ *  Lobby shows the roll screen instead of the normal seat list while this is set.
+ *  Resolving it (see rollDice4P) reseats players by roll rank and deals directly, so
+ *  there's no separate "now deal" step for dice mode the way manual mode has one. */
+export async function startDiceRoll4P(roomCode: string, clientId: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.hostClientId !== clientId) throw new Error('Only the host can start the dice roll')
+    if (room.status !== 'lobby') throw new Error('This can only happen between rounds')
+    const filled = FOUR_P_SEAT_ORDER.every((s) => room.seats[s])
+    if (!filled) throw new Error('Waiting for all 4 seats to fill')
+    tx.update(ref, { diceRollActive4p: true, diceRolls4p: {} })
+  })
+}
+
+/** Any seated player, while a dice roll is active: rolls a d10 for themselves. Once
+ *  all 4 have rolled, resolves automatically — ties re-roll (only the tied players'
+ *  entries get cleared, everyone else's roll stands), otherwise ranks descending,
+ *  reseats blue1/red1/blue2/red2 by that rank (so blue1/blue2 and red1/red2 land on
+ *  whichever pairing the ranking produced — rank 1 and 3 end up teamed, 2 and 4 end
+ *  up teamed, matching FOUR_P_TEAMS), and deals with the top roller as opener. */
+export async function rollDice4P(roomCode: string, clientId: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  const roll = 1 + Math.floor(Math.random() * 10)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.mode !== '4p') throw new Error('Dice rolling is 4P only')
+    if (!room.diceRollActive4p) throw new Error('No dice roll in progress')
+    const seat = FOUR_P_SEAT_ORDER.find((s) => room.seats[s]?.clientId === clientId)
+    if (!seat) throw new Error("You're not seated in this room")
+
+    const rolls = { ...(room.diceRolls4p ?? {}), [clientId]: roll }
+    const allRolled = FOUR_P_SEAT_ORDER.every((s) => {
+      const occupant = room.seats[s]
+      return occupant && rolls[occupant.clientId] !== undefined
+    })
+    if (!allRolled) {
+      tx.update(ref, { [`diceRolls4p.${clientId}`]: roll })
+      return
+    }
+
+    const entries = FOUR_P_SEAT_ORDER.map((s) => {
+      const occupant = room.seats[s]!
+      return { seat: s, clientId: occupant.clientId, name: occupant.name, roll: rolls[occupant.clientId] }
+    })
+
+    const counts = new Map<number, number>()
+    for (const e of entries) counts.set(e.roll, (counts.get(e.roll) ?? 0) + 1)
+    const hasTie = [...counts.values()].some((n) => n > 1)
+    if (hasTie) {
+      const clearedRolls = { ...rolls }
+      for (const e of entries) {
+        if ((counts.get(e.roll) ?? 0) > 1) delete clearedRolls[e.clientId]
+      }
+      tx.update(ref, { diceRolls4p: clearedRolls })
+      return
+    }
+
+    const ranked = [...entries].sort((a, b) => b.roll - a.roll)
+    const newSeats: Partial<Record<string, Seat>> = {}
+    ranked.forEach((e, i) => {
+      newSeats[FOUR_P_SEAT_ORDER[i]] = { clientId: e.clientId, name: e.name }
+    })
+
+    const prevRound = room.game4p?.round ?? 0
+    const names: Record<PlayerId, string> = Object.fromEntries(
+      FOUR_P_SEAT_ORDER.map((s) => [s, newSeats[s]!.name]),
+    ) as Record<PlayerId, string>
+    const game4p = startFourPlayerRound(prevRound + 1, FOUR_P_SEAT_ORDER, FOUR_P_TEAMS, names, FOUR_P_SEAT_ORDER[0])
+
+    tx.update(ref, {
+      seats: newSeats,
+      status: 'playing',
+      game4p,
+      diceRollActive4p: false,
+      diceRolls4p: deleteField(),
+      pendingOpener4p: deleteField(),
+    })
+  })
+}
+
+/** Scraps the current match and deals a fresh round 1 for the same 4 seats — the 4P
+ *  counterpart to restartMatch. Uses the host's last-chosen opener if one's still set,
+ *  otherwise defaults to blue1 rather than blocking the restart on re-picking one. */
+export async function restartMatch4P(roomCode: string): Promise<void> {
+  const ref = roomRef(roomCode)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (room.mode !== '4p') throw new Error('Only 4P rooms use this')
+    if (room.status === 'lobby') throw new Error('The match has not started yet')
+    const filled = FOUR_P_SEAT_ORDER.every((s) => room.seats[s])
+    if (!filled) throw new Error('Waiting for all 4 seats to fill')
+
+    const opener = room.pendingOpener4p && FOUR_P_SEAT_ORDER.includes(room.pendingOpener4p) ? room.pendingOpener4p : FOUR_P_SEAT_ORDER[0]
+    const game4p = startFourPlayerRound(1, FOUR_P_SEAT_ORDER, FOUR_P_TEAMS, namesFromSeats(room), opener)
+    tx.update(ref, { status: 'playing', game4p, endedBy: null, pendingOpener4p: deleteField() })
   })
 }

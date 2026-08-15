@@ -6,6 +6,7 @@
 // build's safeUpdate.
 
 import { doc, runTransaction } from 'firebase/firestore'
+import type { FourPlayerGameState } from '../game/fourPlayerReducer'
 import type { TwoPlayerGameState } from '../game/twoPlayerReducer'
 import { db } from './config'
 import { fromFirestoreGame, toFirestoreGame } from './gameSerialize'
@@ -23,5 +24,23 @@ export async function applyGameAction(
     if (!room.game) throw new Error('The game has not started yet')
     const nextGame = compute(fromFirestoreGame(room.game))
     tx.update(ref, { game: toFirestoreGame(nextGame) })
+  })
+}
+
+/** 4P counterpart — no serialize/deserialize step needed since FourPlayerGameState
+ *  has no Firestore-unsafe shapes (unlike 2P's draw-phase hands tuple), so it's
+ *  stored directly. See RoomDoc.game4p in rooms.ts. */
+export async function applyGameAction4P(
+  roomCode: string,
+  compute: (s: FourPlayerGameState) => FourPlayerGameState,
+): Promise<void> {
+  const ref = doc(db, 'rooms', roomCode.toUpperCase())
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Room no longer exists')
+    const room = snap.data() as RoomDoc
+    if (!room.game4p) throw new Error('The game has not started yet')
+    const nextGame = compute(room.game4p)
+    tx.update(ref, { game4p: nextGame })
   })
 }
