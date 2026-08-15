@@ -192,10 +192,7 @@ export function TrumpView4P({
           exchanging with the kitty.
         </p>
       ) : (
-        <p className="hint">
-          Trump must be named blind, before seeing the kitty — not even {state.names[winner]}'s partner sees this
-          choice being made.
-        </p>
+        <p className="hint">Trump must be named blind, before seeing the kitty.</p>
       )}
 
       <div className="table table-compact">
