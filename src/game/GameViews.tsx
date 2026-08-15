@@ -568,8 +568,8 @@ export function KittyView({
   return (
     <section className="panel">
       <h2>Kitty exchange</h2>
-      <p className="hint">Swap any number of kitty cards into your hand — discard the same number back out.</p>
-      <h3>Kitty — click to take</h3>
+      <p className="hint">Swap any number of kitty cards into your hand.</p>
+      <h3>Kitty</h3>
       <div className="hand-cards">
         {state.kitty.map((card, i) => (
           <CardChip
@@ -581,9 +581,7 @@ export function KittyView({
           />
         ))}
       </div>
-      <h3>
-        Your hand — click to discard ({discardIds.size} selected, need {takeIds.size})
-      </h3>
+      <h3>Your hand</h3>
       <div className="hand-cards">
         {hand.map((card, i) => (
           <CardChip
